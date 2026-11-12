@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f5f1">
+  <title>Nail The Pitch — Absolute pitch training</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Nail The Pitch home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M 7 7 v 8 a 3.3 3.3 0 1 1 -2 -3.03 V 5 l 13 -3 v 13 a 3.3 3.3 0 1 1 -2 -3.03 V 5 L 7 7 Z" fill="currentColor"/>
+          </svg>
+        </span>
+        <span>Nail The Pitch</span>
+      </a>
+      <span class="top-note">A little practice, a sharper ear.</span>
+      <span class="topbar-right">
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" title="Toggle dark theme">
+          <svg class="theme-toggle-icon theme-icon-sun" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <circle cx="10" cy="10" r="3.4" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M10 2v1.8M10 16.2V18M2 10h1.8M16.2 10H18M4.3 4.3l1.3 1.3M14.4 14.4l1.3 1.3M15.7 4.3l-1.3 1.3M5.6 14.4l-1.3 1.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <svg class="theme-toggle-icon theme-icon-moon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M15.5 12.5A6 6 0 0 1 7.5 4.5a6 6 0 1 0 8 8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+          <span class="theme-toggle-label sr-only">Toggle dark theme</span>
+        </button>
+      </span>
+    </header>
+
+    <main>
+      <section class="home-screen" id="home-screen" aria-labelledby="home-title">
+        <p class="eyebrow">Your ear, in tune</p>
+        <h1 class="hero-title" id="home-title">Know the note.<br><em>Own the sound.</em></h1>
+        <p class="hero-copy">Build your sense of absolute pitch, one note at a time. Listen closely, trust your instinct, and watch your ear get sharper.</p>
+
+        <div class="mode-heading">
+          <h2>Choose your training</h2>
+          <span>Start wherever you are</span>
+        </div>
+        <div class="mode-grid">
+          <button class="mode-card" type="button" data-mode="octave">
+            <span class="mode-number">01 / STEP ONE</span>
+            <span class="mode-name">Find the octave</span>
+            <span class="mode-description">Hear the pitch. Pinpoint its place.</span>
+            <span class="mode-arrow" aria-hidden="true">↗</span>
+          </button>
+          <button class="mode-card" type="button" data-mode="note">
+            <span class="mode-number">02 / STEP TWO</span>
+            <span class="mode-name">Name the note</span>
+            <span class="mode-description">Recognize the note, whatever the octave.</span>
+            <span class="mode-arrow" aria-hidden="true">↗</span>
+          </button>
+          <button class="mode-card" type="button" data-mode="full">
+            <span class="mode-number">03 / THE FULL PICTURE</span>
+            <span class="mode-name">Note &amp; octave</span>
+            <span class="mode-description">Name the full pitch in one go.</span>
+            <span class="mode-arrow" aria-hidden="true">↗</span>
+          </button>
+        </div>
+        <footer class="home-footer">
+          <span>NO SCORES TO CHASE. JUST PROGRESS TO MAKE.</span>
+          <span>Best with headphones on.</span>
+        </footer>
+      </section>
+
+      <section class="game-screen" id="game-screen" aria-label="Pitch training" hidden>
+        <div class="game-top">
+          <button class="back-button" id="back-button" type="button">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M12.5 4.5 7 10l5.5 5.5M7.5 10h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back to menu
+          </button>
+          <div class="game-mode-label">Now training<strong id="mode-name">Find the octave</strong></div>
+        </div>
+
+        <div class="stats" aria-label="Session statistics">
+          <div class="stat"><span class="stat-label">Time</span><strong class="stat-value" id="timer">00:00</strong></div>
+          <div class="stat stat-correct"><span class="stat-label">Correct</span><strong class="stat-value" id="correct-count">0</strong></div>
+          <div class="stat stat-incorrect"><span class="stat-label">Incorrect</span><strong class="stat-value" id="incorrect-count">0</strong></div>
+          <div class="stat"><span class="stat-label">Questions</span><strong class="stat-value" id="question-count">0</strong></div>
+        </div>
+
+        <div class="game-panel">
+          <section class="listen-panel" aria-label="Listen to the note">
+            <span class="listen-label">Listen closely</span>
+            <div class="sound-orb" id="sound-orb">
+              <button class="play-button" id="play-button" type="button" aria-label="Play note again">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M8 5.8c0-.78.85-1.26 1.52-.86l9.1 5.39a1 1 0 0 1 0 1.72l-9.1 5.39A1 1 0 0 1 8 16.58V5.8Z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+            <p class="listen-hint" id="listen-hint">Tap to hear the note again</p>
+          </section>
+          <section class="answer-panel" aria-labelledby="question-title">
+            <p class="question-kicker" id="question-kicker">Your turn</p>
+            <h2 class="question-title" id="question-title">Which octave did you hear?</h2>
+            <p class="question-copy" id="question-copy">Choose the octave that matches the sound.</p>
+            <div class="answer-grid" id="answer-grid" role="group" aria-label="Answer choices"></div>
+            <p class="feedback" id="feedback" role="status" aria-live="polite"></p>
+            <button class="next-button" id="next-button" type="button" hidden>
+              Next note <span aria-hidden="true">→</span>
+            </button>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
