@@ -99,6 +99,7 @@
         timerInterval = setInterval(updateTimer, 1000);
         clearTimeout(entryDelayTimer);
         entryDelayTimer = setTimeout(nextQuestion, settings.entryDelay);
+        primeAudio();
       }
 
       function stopSession() {
