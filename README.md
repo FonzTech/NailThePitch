@@ -68,13 +68,6 @@ nailthenote/
 
 Notes are synthesized on the fly from a MIDI number (36–83). Each note is built from a fundamental plus a few harmonics, with an amplitude envelope that produces a soft, realistic tone — all computed live with the Web Audio API.
 
-## Roadmap (ideas)
-
-- [ ] New modes or increasing difficulty levels
-- [ ] Statistics persistence (e.g. localStorage)
-- [ ] Reference instrument support (piano, guitar)
-- [ ] Automated tests
-
 ## License
 
 GNU Lesser General Public License v3.0 (LGPL-3.0). See [LICENSE.md](LICENSE.md) for details.
