@@ -25,6 +25,8 @@
 
       const homeScreen = document.querySelector("#home-screen");
       const gameScreen = document.querySelector("#game-screen");
+      const app = document.querySelector(".app");
+      const themeToggle = document.querySelector("#theme-toggle");
       const modeName = document.querySelector("#mode-name");
       const questionTitle = document.querySelector("#question-title");
       const questionCopy = document.querySelector("#question-copy");
@@ -70,6 +72,7 @@
         timer.textContent = "00:00";
         homeScreen.hidden = true;
         gameScreen.hidden = false;
+        app.classList.add("is-playing");
         modeName.textContent = modes[mode].name;
         questionTitle.textContent = modes[mode].title;
         questionCopy.textContent = modes[mode].copy;
@@ -89,6 +92,7 @@
         }
         gameScreen.hidden = true;
         homeScreen.hidden = false;
+        app.classList.remove("is-playing");
         activeMode = null;
       }
 
@@ -182,7 +186,13 @@
         if (!context || !currentQuestion) return;
 
         clearTimeout(audioStopTimer);
+
+        if (soundOrb.classList.contains("is-playing")) {
+          soundOrb.classList.remove("is-playing");
+          void soundOrb.offsetWidth;
+        }
         soundOrb.classList.add("is-playing");
+
         const start = context.currentTime + 0.02;
         const frequency = 440 * Math.pow(2, (currentQuestion.note.midi - 69) / 12);
         const partials = [
@@ -251,6 +261,21 @@
       });
       document.querySelector("#play-button").addEventListener("click", playNote);
       nextButton.addEventListener("click", nextQuestion);
+
+      function applyTheme(theme) {
+        if (theme === "dark") {
+          document.documentElement.setAttribute("data-theme", "dark");
+          themeToggle.setAttribute("aria-pressed", "true");
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+          themeToggle.setAttribute("aria-pressed", "false");
+        }
+      }
+
+      themeToggle.addEventListener("click", () => {
+        const dark = document.documentElement.getAttribute("data-theme") === "dark";
+        applyTheme(dark ? "light" : "dark");
+      });
 
       function nextQuestion() {
         if (!activeMode) return;

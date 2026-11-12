@@ -15,6 +15,7 @@ Nail The Pitch is a small web app for training your **absolute pitch**, one note
 - **Live session statistics** — time, correct answers, incorrect answers, and question count.
 - **Instant feedback** with random distractors for every question.
 - **Responsive, accessible interface** (ARIA, keyboard navigation).
+- **Switchable dark theme** — toggle button on the game selector screen.
 - **Zero dependencies**: just HTML, CSS, and vanilla JavaScript.
 
 ## Stack
