@@ -30,10 +30,12 @@
   --btn-hover-bg: #f3f6f0;
   --correct: #34704a;
   --correct-bg: #e6f0e5;
+  --correct-light: #e4f0e3;
   --correct-line: #80a58a;
   --correct-ink: #2e6440;
   --wrong: #a94e38;
   --wrong-bg: #fbebe6;
+  --wrong-light: #fae7e0;
   --wrong-line: #d89883;
   --wrong-ink: #a24f36;
   --focus-ring: rgb(53 93 73 / 28%);
@@ -77,10 +79,12 @@
   --btn-hover-bg: #1e2420;
   --correct: #7cc399;
   --correct-bg: #16241c;
+  --correct-light: #1b2b21;
   --correct-line: #3d6a51;
   --correct-ink: #a5e0bd;
   --wrong: #e0886c;
   --wrong-bg: #2a1a15;
+  --wrong-light: #2e1b16;
   --wrong-line: #7a4a38;
   --wrong-ink: #f0a58c;
   --focus-ring: rgb(111 174 141 / 32%);
@@ -403,6 +407,16 @@ h1, h2, p { margin-top: 0; }
   font-size: 19px;
   font-weight: 700;
   letter-spacing: -.04em;
+}
+
+.stat-correct {
+  background: var(--correct-light);
+  border-color: var(--correct-line);
+}
+
+.stat-incorrect {
+  background: var(--wrong-light);
+  border-color: var(--wrong-line);
 }
 
 .game-panel {
