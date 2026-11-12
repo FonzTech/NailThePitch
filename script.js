@@ -97,8 +97,9 @@
         startedAt = Date.now();
         clearInterval(timerInterval);
         timerInterval = setInterval(updateTimer, 1000);
+        makeQuestion();
         clearTimeout(entryDelayTimer);
-        entryDelayTimer = setTimeout(nextQuestion, settings.entryDelay);
+        entryDelayTimer = setTimeout(playNote, settings.entryDelay);
         primeAudio();
       }
 
@@ -184,7 +185,6 @@
 
         questions++;
         questionCount.textContent = String(questions);
-        playNote();
       }
 
       async function getAudioContext() {
@@ -305,5 +305,6 @@
       function nextQuestion() {
         if (!activeMode) return;
         makeQuestion();
+        playNote();
       }
     })();
