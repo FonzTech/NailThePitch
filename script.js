@@ -57,12 +57,14 @@
       let audioStopTimer = null;
       let entryDelayTimer = null;
 
-      // Create/resume the shared AudioContext inside a user gesture so the
-      // browser's autoplay policy allows sound once the game starts.
+      // Request/resume audio output inside a user gesture so the browser's
+      // autoplay policy unlocks sound before the first note is scheduled.
       async function primeAudio() {
         try {
           const context = await getAudioContext();
-          if (context && context.state === "suspended") await context.resume();
+          if (context && context.state === "suspended") {
+            await context.resume();
+          }
         } catch (error) {
           /* Audio is blocked; playNote will surface its own message. */
         }
@@ -197,7 +199,16 @@
           }
           audioContext = new AudioContextConstructor();
         }
-        if (audioContext.state === "suspended") await audioContext.resume();
+        // Resume inside the caller's user gesture. Browsers may require an
+        // interaction to unlock sound output (autoplay policy).
+        if (audioContext.state === "suspended") {
+          try {
+            await audioContext.resume();
+          } catch (error) {
+            feedback.textContent = "Tap again to turn on the sound.";
+            feedback.className = "feedback is-wrong";
+          }
+        }
         return audioContext;
       }
 

@@ -472,7 +472,7 @@ h1, h2, p { margin-top: 0; }
   width: 96px;
   height: 96px;
   transform-origin: 50% 50%;
-  transform: scale(0.5);
+  transform: scale(0.4);
 }
 
 .sound-orb.is-playing::before {
@@ -484,10 +484,10 @@ h1, h2, p { margin-top: 0; }
 }
 
 @keyframes pulse {
-  0% { transform: scale(0.5); opacity: 1; }
+  0% { transform: scale(0.4); opacity: 1; }
   90% { transform: scale(1.5); opacity: 0; }
-  99% { transform: scale(0.5); opacity: 0; }
-  100% { transform: scale(0.5); opacity: 1; }
+  99% { transform: scale(0.4); opacity: 0; }
+  100% { transform: scale(0.4); opacity: 1; }
 }
 
 .play-button {
@@ -652,10 +652,10 @@ h1, h2, p { margin-top: 0; }
   .stat-value { font-size: 17px; }
   .game-panel { grid-template-columns: minmax(138px, .72fr) minmax(0, 1.28fr); }
   .listen-panel { padding: 14px 10px; }
-  .answer-panel { padding: 16px 15px; }
+  .answer-panel { padding: 0px 15px; }
   .question-copy { margin-bottom: 14px; font-size: 11px; }
   .answer-grid { gap: 6px; }
-  .answer-button { font-size: 12px; }
+  .answer-button { min-width: 64px; font-size: 12px; }
 }
 
 @media (max-width: 460px) {
@@ -700,12 +700,12 @@ h1, h2, p { margin-top: 0; }
   .play-button { width: 39px; height: 39px; }
   .play-button svg { width: 17px; height: 17px; }
   .listen-hint { font-size: 11px; }
-  .answer-panel { padding: 15px 15px 12px; }
+  .answer-panel { padding: 0px 15px 0px 12px; }
   .question-kicker { margin-bottom: 5px; font-size: 9px; }
   .question-title { font-size: clamp(23px, 7vw, 30px); }
   .question-copy { margin: 5px 0 11px; font-size: 10px; }
   .answer-grid { gap: 5px; }
-  .answer-button { min-height: 34px; padding: 4px 2px; font-size: 11px; }
+  .answer-button { min-height: 40px; padding: 4px 2px; font-size: 11px; }
   .feedback { min-height: 29px; margin-top: 7px; font-size: 10px; }
   .next-button { min-height: 37px; margin-top: 0; font-size: 11px; }
 }
@@ -719,7 +719,8 @@ h1, h2, p { margin-top: 0; }
   .game-screen { padding-top: 5px; }
   .game-top { margin-bottom: 8px; }
   .stats { margin-bottom: 9px; }
-  .listen-panel, .answer-panel { padding-block: 16px; }
+  .listen-panel { padding-block: 0px 16px; }
+  ..answer-panel { padding: 0px 16px; }
   .question-copy { margin-bottom: 12px; }
 }
 /*
