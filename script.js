@@ -97,8 +97,9 @@
         startedAt = Date.now();
         clearInterval(timerInterval);
         timerInterval = setInterval(updateTimer, 1000);
+        makeQuestion();
         clearTimeout(entryDelayTimer);
-        entryDelayTimer = setTimeout(nextQuestion, settings.entryDelay);
+        entryDelayTimer = setTimeout(playNote, settings.entryDelay);
         primeAudio();
       }
 
@@ -142,7 +143,7 @@
       }
 
       function makeQuestion() {
-        const note = pitchFromMidi(randomInt(36, 83));
+        const note = pitchFromMidi(randomInt(36, 95));
         let choices;
         let answer;
 
@@ -154,7 +155,7 @@
           answer = note.name;
         } else {
           const possibleNotes = [];
-          for (let midi = 48; midi <= 83; midi++) possibleNotes.push(pitchFromMidi(midi));
+          for (let midi = 36; midi <= 95; midi++) possibleNotes.push(pitchFromMidi(midi));
           const distractors = shuffle(possibleNotes.filter(pitch => pitch.midi !== note.midi)).slice(0, 11);
           choices = shuffle([note, ...distractors]).map(pitch => ({
             label: pitch.label,
@@ -184,7 +185,6 @@
 
         questions++;
         questionCount.textContent = String(questions);
-        playNote();
       }
 
       async function getAudioContext() {
@@ -238,6 +238,10 @@
         audioStopTimer = setTimeout(() => soundOrb.classList.remove("is-playing"), 1450);
       }
 
+      function frequencyForMidi(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
       function submitAnswer(button) {
         if (answered) return;
         answered = true;
@@ -247,17 +251,18 @@
           : activeMode === "note"
             ? currentQuestion.note.name
             : currentQuestion.note.label;
+        const hertz = Math.round(frequencyForMidi(currentQuestion.note.midi));
 
         if (isCorrect) {
           correct++;
           correctCount.textContent = String(correct);
-          feedback.textContent = "That's right. Nice ear!";
+          feedback.textContent = `That's right - ${rightAnswer} (${hertz} Hz). Nice ear!`;
           feedback.classList.add("is-correct");
           button.classList.add("is-correct");
         } else {
           incorrect++;
           incorrectCount.textContent = String(incorrect);
-          feedback.textContent = `Not quite — the note was ${rightAnswer}.`;
+          feedback.textContent = `Not quite - the note was ${rightAnswer} (${hertz} Hz).`;
           feedback.classList.add("is-wrong");
           button.classList.add("is-wrong");
           const correctButton = [...answerGrid.children].find(
@@ -300,5 +305,6 @@
       function nextQuestion() {
         if (!activeMode) return;
         makeQuestion();
+        playNote();
       }
     })();
