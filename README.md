@@ -4,7 +4,7 @@
 
 Try it online: **[https://fonztech.github.io/NailThePitch/](https://fonztech.github.io/NailThePitch/)**
 
-**Know the note. Own the sound.**
+## Know the note. Own the sound.
 
 Nail The Pitch is a small web app for training your **absolute pitch**, one note at a time. Listen closely, trust your instinct, and watch your ear get sharper — no scores to chase, just progress to make.
 
