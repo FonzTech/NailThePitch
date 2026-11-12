@@ -238,6 +238,10 @@
         audioStopTimer = setTimeout(() => soundOrb.classList.remove("is-playing"), 1450);
       }
 
+      function frequencyForMidi(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
       function submitAnswer(button) {
         if (answered) return;
         answered = true;
@@ -247,17 +251,18 @@
           : activeMode === "note"
             ? currentQuestion.note.name
             : currentQuestion.note.label;
+        const hertz = frequencyForMidi(currentQuestion.note.midi).toFixed(1);
 
         if (isCorrect) {
           correct++;
           correctCount.textContent = String(correct);
-          feedback.textContent = "That's right. Nice ear!";
+          feedback.textContent = `That's right - ${rightAnswer} (${hertz} Hz). Nice ear!`;
           feedback.classList.add("is-correct");
           button.classList.add("is-correct");
         } else {
           incorrect++;
           incorrectCount.textContent = String(incorrect);
-          feedback.textContent = `Not quite — the note was ${rightAnswer}.`;
+          feedback.textContent = `Not quite - the note was ${rightAnswer} (${hertz} Hz).`;
           feedback.classList.add("is-wrong");
           button.classList.add("is-wrong");
           const correctButton = [...answerGrid.children].find(
