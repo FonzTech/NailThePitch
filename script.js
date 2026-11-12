@@ -23,6 +23,11 @@
         }
       };
 
+      // Lead-in delay (ms) before the first note plays when entering a game.
+      const settings = {
+        entryDelay: 250
+      };
+
       const homeScreen = document.querySelector("#home-screen");
       const gameScreen = document.querySelector("#game-screen");
       const app = document.querySelector(".app");
@@ -50,6 +55,7 @@
       let timerInterval = null;
       let audioContext = null;
       let audioStopTimer = null;
+      let entryDelayTimer = null;
 
       function formatTime(totalSeconds) {
         const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
@@ -80,12 +86,14 @@
         startedAt = Date.now();
         clearInterval(timerInterval);
         timerInterval = setInterval(updateTimer, 1000);
-        nextQuestion();
+        clearTimeout(entryDelayTimer);
+        entryDelayTimer = setTimeout(nextQuestion, settings.entryDelay);
       }
 
       function stopSession() {
         clearInterval(timerInterval);
         clearTimeout(audioStopTimer);
+        clearTimeout(entryDelayTimer);
         if (audioContext) {
           audioContext.close();
           audioContext = null;
