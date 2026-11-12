@@ -142,7 +142,7 @@
       }
 
       function makeQuestion() {
-        const note = pitchFromMidi(randomInt(36, 83));
+        const note = pitchFromMidi(randomInt(36, 95));
         let choices;
         let answer;
 
@@ -154,7 +154,7 @@
           answer = note.name;
         } else {
           const possibleNotes = [];
-          for (let midi = 48; midi <= 83; midi++) possibleNotes.push(pitchFromMidi(midi));
+          for (let midi = 36; midi <= 95; midi++) possibleNotes.push(pitchFromMidi(midi));
           const distractors = shuffle(possibleNotes.filter(pitch => pitch.midi !== note.midi)).slice(0, 11);
           choices = shuffle([note, ...distractors]).map(pitch => ({
             label: pitch.label,
