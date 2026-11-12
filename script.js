@@ -251,7 +251,7 @@
           : activeMode === "note"
             ? currentQuestion.note.name
             : currentQuestion.note.label;
-        const hertz = frequencyForMidi(currentQuestion.note.midi).toFixed(1);
+        const hertz = Math.round(frequencyForMidi(currentQuestion.note.midi));
 
         if (isCorrect) {
           correct++;
