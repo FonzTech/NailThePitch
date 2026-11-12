@@ -57,6 +57,17 @@
       let audioStopTimer = null;
       let entryDelayTimer = null;
 
+      // Create/resume the shared AudioContext inside a user gesture so the
+      // browser's autoplay policy allows sound once the game starts.
+      async function primeAudio() {
+        try {
+          const context = await getAudioContext();
+          if (context && context.state === "suspended") await context.resume();
+        } catch (error) {
+          /* Audio is blocked; playNote will surface its own message. */
+        }
+      }
+
       function formatTime(totalSeconds) {
         const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
         const seconds = (totalSeconds % 60).toString().padStart(2, "0");

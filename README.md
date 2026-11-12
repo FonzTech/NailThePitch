@@ -39,6 +39,10 @@ cd nailthenote
 
 **Tip:** for the best experience, use **headphones**.
 
+## Live web app
+
+Try it online: **[https://fonztech.github.io/NailThePitch/](https://fonztech.github.io/NailThePitch/)**
+
 ## Usage
 
 1. On the home screen, choose one of the three training modes.
