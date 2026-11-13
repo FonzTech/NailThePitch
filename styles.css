@@ -774,7 +774,7 @@ h1, h2, p { margin-top: 0; }
   .answer-panel { padding: 0px 15px; }
   .question-copy { margin-bottom: 14px; font-size: 14px; }
   .answer-grid { gap: 6px; }
-  .answer-button { min-width: 64px; font-size: 14px; }
+  .answer-button { min-width: 64px; min-height: 48px; font-size: 14px; }
 }
 
 @media (max-width: 460px) {
@@ -804,27 +804,44 @@ h1, h2, p { margin-top: 0; }
   .stat-value { font-size: 15px; }
   .game-panel {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(105px, .37fr) minmax(0, 1fr);
+    grid-template-rows: 1fr;
+    position: relative;
     border-radius: 15px;
   }
   .listen-panel {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    width: auto;
     flex-direction: row;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 10px 16px;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+    padding: 7px 12px;
+    background: var(--green-pale);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    box-shadow: var(--card-shadow);
     text-align: left;
+    white-space: nowrap;
   }
   .listen-label { display: none; }
-  .sound-orb { width: 76px; margin: 0; flex: 0 0 auto; }
+  .sound-orb { width: 56px; margin: 0; flex: 0 0 auto; }
   .play-button { width: 39px; height: 39px; }
   .play-button svg { width: 17px; height: 17px; }
   .listen-hint { font-size: 14px; }
-  .answer-panel { padding: 0px 15px 0px 12px; }
+  .answer-panel {
+    justify-content: flex-start;
+    padding: clamp(76px, 19vh, 96px) 14px 12px;
+    text-align: center;
+  }
   .question-kicker { margin-bottom: 5px; font-size: 9px; }
   .question-title { font-size: clamp(23px, 7vw, 30px); }
   .question-copy { margin: 5px 0 11px; font-size: 14px; }
   .answer-grid { gap: 5px; }
-  .answer-button { min-height: 40px; padding: 4px 2px; font-size: 14px; }
+  .answer-button { min-height: 48px; padding: 6px 2px; font-size: 14px; }
   .feedback { min-height: 29px; margin-top: 7px; font-size: 14px; }
   .next-button { min-height: 37px; margin-top: 0; font-size: 14px; }
 }
