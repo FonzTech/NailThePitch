@@ -46,10 +46,12 @@
       const soundOrb = document.querySelector("#sound-orb");
       const octaveModal = document.querySelector("#octave-modal");
       const octaveSelect = document.querySelector("#octave-select");
+      const noteCountSelect = document.querySelector("#note-count-select");
       const octaveStart = document.querySelector("#octave-start");
 
       let activeMode = null;
       let activeOctave = 4;
+      let activeNoteCount = 6;
       let currentQuestion = null;
       let answered = false;
       let correct = 0;
@@ -84,9 +86,10 @@
         timer.textContent = formatTime(Math.floor((Date.now() - startedAt) / 1000));
       }
 
-      function startSession(mode, octave) {
+      function startSession(mode, octave, noteCount) {
         activeMode = mode;
         activeOctave = (typeof octave === "number") ? octave : 4;
+        activeNoteCount = (typeof noteCount === "number") ? noteCount : 6;
         correct = 0;
         incorrect = 0;
         questions = 0;
@@ -167,7 +170,11 @@
           choices = [2, 3, 4, 5, 6].map(String);
           answer = String(note.octave);
         } else if (activeMode === "note") {
-          choices = [...pitchClasses];
+          // Show a subset of pitch options (correct note + distractors),
+          // sized by the chosen note count.
+          const others = pitchClasses.filter(name => name !== note.name);
+          const distractors = shuffle(others).slice(0, Math.max(0, activeNoteCount - 1));
+          choices = shuffle([note.name, ...distractors]);
           answer = note.name;
         } else {
           const possibleNotes = [];
@@ -332,8 +339,9 @@
 
       function beginNoteGame() {
         const octave = Number(octaveSelect.value) || 4;
+        const noteCount = Number(noteCountSelect.value) || 6;
         closeOctaveModal();
-        startSession("note", octave);
+        startSession("note", octave, noteCount);
       }
 
       document.querySelectorAll("[data-mode]").forEach(button => {
