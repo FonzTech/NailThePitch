@@ -325,16 +325,18 @@
           option.textContent = `${option.value} (${bounds.start}–${bounds.end} Hz)`;
         });
         activeOctave = Number(octaveSelect.value) || 4;
+        // Show and make the modal interactive.
+        octaveModal.removeAttribute("inert");
         octaveModal.hidden = false;
-        octaveModal.setAttribute("aria-hidden", "false");
         octaveModal.querySelector(".modal-dialog").focus();
         // Wait until the browser has painted the modal before focusing the select.
         requestAnimationFrame(() => octaveSelect.focus());
       }
 
       function closeOctaveModal() {
+        // Hide and make the modal (and its focusable descendants) inert.
         octaveModal.hidden = true;
-        octaveModal.setAttribute("aria-hidden", "true");
+        octaveModal.setAttribute("inert", "");
       }
 
       function beginNoteGame() {
