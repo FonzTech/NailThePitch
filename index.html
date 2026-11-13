@@ -54,7 +54,7 @@
           <button class="mode-card" type="button" data-mode="note">
             <span class="mode-number">02 / STEP TWO</span>
             <span class="mode-name">Name the note</span>
-            <span class="mode-description">Recognize the note, whatever the octave.</span>
+            <span class="mode-description">Recognize the note, within an octave of your choice.</span>
             <span class="mode-arrow" aria-hidden="true">↗</span>
           </button>
           <button class="mode-card" type="button" data-mode="full">
@@ -115,6 +115,29 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="modal" id="octave-modal" hidden aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="octave-modal-title">
+      <p class="modal-kicker">02 / STEP TWO</p>
+      <h2 class="modal-title" id="octave-modal-title">Name the note</h2>
+      <p class="modal-copy">Choose an octave. Notes will be played only within it.</p>
+      <label class="modal-field" for="octave-select">
+        <span class="modal-field-label">Octave</span>
+        <select class="modal-select" id="octave-select" name="octave">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4" selected>4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button class="modal-button modal-cancel" id="octave-cancel" type="button" data-modal-close>Cancel</button>
+        <button class="modal-button modal-start" id="octave-start" type="button">Start</button>
+      </div>
+    </div>
   </div>
 
   <script src="script.js"></script>

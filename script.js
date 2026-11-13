@@ -12,7 +12,7 @@
         note: {
           name: "Name the note",
           title: "What note is it?",
-          copy: "The octave doesn't matter. Name the note.",
+          copy: "Recognize the note.",
           kicker: "Name that note"
         },
         full: {
@@ -44,8 +44,12 @@
       const incorrectCount = document.querySelector("#incorrect-count");
       const questionCount = document.querySelector("#question-count");
       const soundOrb = document.querySelector("#sound-orb");
+      const octaveModal = document.querySelector("#octave-modal");
+      const octaveSelect = document.querySelector("#octave-select");
+      const octaveStart = document.querySelector("#octave-start");
 
       let activeMode = null;
+      let activeOctave = 4;
       let currentQuestion = null;
       let answered = false;
       let correct = 0;
@@ -80,8 +84,9 @@
         timer.textContent = formatTime(Math.floor((Date.now() - startedAt) / 1000));
       }
 
-      function startSession(mode) {
+      function startSession(mode, octave) {
         activeMode = mode;
+        activeOctave = (typeof octave === "number") ? octave : 4;
         correct = 0;
         incorrect = 0;
         questions = 0;
@@ -94,7 +99,12 @@
         app.classList.add("is-playing");
         modeName.textContent = modes[mode].name;
         questionTitle.textContent = modes[mode].title;
-        questionCopy.textContent = modes[mode].copy;
+        if (mode === "note") {
+          const bounds = octaveHzBounds(activeOctave);
+          questionCopy.textContent = `Recognize the note inside octave ${activeOctave} (${bounds.start}–${bounds.end} Hz).`;
+        } else {
+          questionCopy.textContent = modes[mode].copy;
+        }
         questionKicker.textContent = modes[mode].kicker;
         startedAt = Date.now();
         clearInterval(timerInterval);
@@ -145,7 +155,11 @@
       }
 
       function makeQuestion() {
-        const note = pitchFromMidi(randomInt(36, 95));
+        // "note" mode is constrained to the chosen octave (2–6): C at MIDI
+        // 12*(octave+1) up to B at 12*(octave+2)-1. Other modes use C2–B6.
+        const lo = activeMode === "note" ? 12 * (activeOctave + 1) : 36;
+        const hi = activeMode === "note" ? 12 * (activeOctave + 2) - 1 : 95;
+        const note = pitchFromMidi(randomInt(lo, hi));
         let choices;
         let answer;
 
@@ -253,6 +267,16 @@
         return 440 * Math.pow(2, (midi - 69) / 12);
       }
 
+      // Lowest (C) and highest (B) hertz of an octave, rounded to integers.
+      function octaveHzBounds(octave) {
+        const startMidi = 12 * (octave + 1);   // C of the octave
+        const endMidi = 12 * (octave + 2) - 1; // B of the octave
+        return {
+          start: Math.round(frequencyForMidi(startMidi)),
+          end: Math.round(frequencyForMidi(endMidi))
+        };
+      }
+
       function submitAnswer(button) {
         if (answered) return;
         answered = true;
@@ -267,13 +291,13 @@
         if (isCorrect) {
           correct++;
           correctCount.textContent = String(correct);
-          feedback.textContent = `That's right - ${rightAnswer} (${hertz} Hz). Nice ear!`;
+          feedback.innerHTML = `That's right - <b>${rightAnswer} (${hertz} Hz)</b>. Nice ear!`;
           feedback.classList.add("is-correct");
           button.classList.add("is-correct");
         } else {
           incorrect++;
           incorrectCount.textContent = String(incorrect);
-          feedback.textContent = `Not quite - the note was ${rightAnswer} (${hertz} Hz).`;
+          feedback.innerHTML = `Not quite - the note was <b>${rightAnswer} (${hertz} Hz)</b>.`;
           feedback.classList.add("is-wrong");
           button.classList.add("is-wrong");
           const correctButton = [...answerGrid.children].find(
@@ -287,8 +311,46 @@
         nextButton.focus();
       }
 
+      function openOctaveModal() {
+        // Show each octave's frequency range in the dropdown options.
+        [...octaveSelect.options].forEach(option => {
+          const bounds = octaveHzBounds(Number(option.value));
+          option.textContent = `${option.value} (${bounds.start}–${bounds.end} Hz)`;
+        });
+        activeOctave = Number(octaveSelect.value) || 4;
+        octaveModal.hidden = false;
+        octaveModal.setAttribute("aria-hidden", "false");
+        octaveModal.querySelector(".modal-dialog").focus();
+        // Wait until the browser has painted the modal before focusing the select.
+        requestAnimationFrame(() => octaveSelect.focus());
+      }
+
+      function closeOctaveModal() {
+        octaveModal.hidden = true;
+        octaveModal.setAttribute("aria-hidden", "true");
+      }
+
+      function beginNoteGame() {
+        const octave = Number(octaveSelect.value) || 4;
+        closeOctaveModal();
+        startSession("note", octave);
+      }
+
       document.querySelectorAll("[data-mode]").forEach(button => {
-        button.addEventListener("click", () => startSession(button.dataset.mode));
+        button.addEventListener("click", () => {
+          if (button.dataset.mode === "note") {
+            openOctaveModal();
+          } else {
+            startSession(button.dataset.mode);
+          }
+        });
+      });
+      octaveStart.addEventListener("click", beginNoteGame);
+      octaveModal.querySelectorAll("[data-modal-close]").forEach(el => {
+        el.addEventListener("click", closeOctaveModal);
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !octaveModal.hidden) closeOctaveModal();
       });
       document.querySelector("#back-button").addEventListener("click", stopSession);
       document.querySelector(".brand").addEventListener("click", event => {
