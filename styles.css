@@ -767,7 +767,7 @@ h1, h2, p { margin-top: 0; }
   .game-screen { padding-top: 8px; }
   .stats { gap: 6px; margin-bottom: 10px; }
   .stat { padding: 8px 9px; }
-  .stat-label { font-size: 9px; }
+  .stat-label { font-size: 11px; }
   .stat-value { font-size: 17px; }
   .game-panel { grid-template-columns: minmax(138px, .72fr) minmax(0, 1.28fr); }
   .listen-panel { padding: 14px 10px; }
@@ -800,7 +800,7 @@ h1, h2, p { margin-top: 0; }
   .game-mode-label strong { font-size: 14px; }
   .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 9px; }
   .stat { padding: 7px 6px; text-align: center; }
-  .stat-label { font-size: 8px; }
+  .stat-label { font-size: 11px; }
   .stat-value { font-size: 15px; }
   .game-panel {
     grid-template-columns: 1fr;
