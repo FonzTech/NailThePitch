@@ -16,7 +16,7 @@ cd "$(dirname "$0")"
 
 MAIN_BRANCH="master"
 DEPLOY_BRANCH="gh-pages"
-FILES=(index.html script.js styles.css)
+FILES=(index.html script.js styles.css C2.wav C3.wav C4.wav C5.wav C6.wav C7.wav)
 
 # --- 1. Precheck -----------------------------------------------------------------
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then

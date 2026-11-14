@@ -28,6 +28,14 @@
       const settings = {
         entryDelay: 250
       };
+      const pianoSampleFiles = [
+        { midi: 36, url: "C2.wav" },
+        { midi: 48, url: "C3.wav" },
+        { midi: 60, url: "C4.wav" },
+        { midi: 72, url: "C5.wav" },
+        { midi: 84, url: "C6.wav" },
+        { midi: 96, url: "C7.wav" }
+      ];
 
       const homeScreen = document.querySelector("#home-screen");
       const gameScreen = document.querySelector("#game-screen");
@@ -68,8 +76,9 @@
       let startedAt = 0;
       let timerInterval = null;
       let audioContext = null;
-      let audioStopTimer = null;
       let entryDelayTimer = null;
+      let pianoSampleBuffersPromise = null;
+      let activeSampleSource = null;
 
       // Request/resume audio output inside a user gesture so the browser's
       // autoplay policy unlocks sound before the first note is scheduled.
@@ -129,8 +138,13 @@
 
       function stopSession() {
         clearInterval(timerInterval);
-        clearTimeout(audioStopTimer);
         clearTimeout(entryDelayTimer);
+        if (activeSampleSource) {
+          activeSampleSource.onended = null;
+          activeSampleSource.stop();
+          activeSampleSource = null;
+        }
+        soundOrb.classList.remove("is-playing");
         if (audioContext) {
           audioContext.close();
           audioContext = null;
@@ -258,41 +272,75 @@
         return audioContext;
       }
 
+      function loadPianoSamples(context) {
+        if (!pianoSampleBuffersPromise) {
+          pianoSampleBuffersPromise = Promise.all(pianoSampleFiles.map(async ({ midi, url }) => {
+            const response = await fetch(new URL(url, document.baseURI));
+            if (!response.ok) {
+              throw new Error(`Could not load ${url} (HTTP ${response.status}).`);
+            }
+            const buffer = await context.decodeAudioData(await response.arrayBuffer());
+            return [midi, buffer];
+          })).then(entries => new Map(entries)).catch(error => {
+            pianoSampleBuffersPromise = null;
+            throw error;
+          });
+        }
+        return pianoSampleBuffersPromise;
+      }
+
+      function nearestPianoSample(midi) {
+        return pianoSampleFiles.reduce((nearest, sample) =>
+          Math.abs(sample.midi - midi) < Math.abs(nearest.midi - midi) ? sample : nearest
+        );
+      }
+
       async function playNote() {
         const context = await getAudioContext();
         if (!context || !currentQuestion) return;
 
-        clearTimeout(audioStopTimer);
+        const question = currentQuestion;
+        const midi = question.note.midi;
+        let buffers;
+        try {
+          buffers = await loadPianoSamples(context);
+        } catch (error) {
+          if (currentQuestion !== question || !activeMode) return;
+          console.error("Failed to load piano samples:", error);
+          feedback.textContent = "Could not load the piano WAVs. Make sure C2.wav–C7.wav are in the project root and open the app through a local web server.";
+          feedback.className = "feedback is-wrong";
+          return;
+        }
+
+        if (currentQuestion !== question || !activeMode) return;
+        if (activeSampleSource) {
+          activeSampleSource.onended = null;
+          activeSampleSource.stop();
+          activeSampleSource = null;
+        }
+
+        const sample = nearestPianoSample(midi);
+        const buffer = buffers.get(sample.midi);
+        const playbackRate = Math.pow(2, (midi - sample.midi) / 12);
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.setValueAtTime(playbackRate, context.currentTime);
+        source.connect(context.destination);
+        activeSampleSource = source;
+        source.onended = () => {
+          if (activeSampleSource === source) {
+            activeSampleSource = null;
+            soundOrb.classList.remove("is-playing");
+          }
+        };
 
         if (soundOrb.classList.contains("is-playing")) {
           soundOrb.classList.remove("is-playing");
           void soundOrb.offsetWidth;
         }
         soundOrb.classList.add("is-playing");
-
         const start = context.currentTime + 0.02;
-        const frequency = 440 * Math.pow(2, (currentQuestion.note.midi - 69) / 12);
-        const partials = [
-          { multiple: 1, gain: 0.72 },
-          { multiple: 2, gain: 0.18 },
-          { multiple: 3, gain: 0.07 }
-        ];
-
-        partials.forEach(({ multiple, gain: level }) => {
-          const oscillator = context.createOscillator();
-          const envelope = context.createGain();
-          oscillator.type = "sine";
-          oscillator.frequency.setValueAtTime(frequency * multiple, start);
-          envelope.gain.setValueAtTime(0.0001, start);
-          envelope.gain.exponentialRampToValueAtTime(level, start + 0.025);
-          envelope.gain.exponentialRampToValueAtTime(0.0001, start + 1.35);
-          oscillator.connect(envelope);
-          envelope.connect(context.destination);
-          oscillator.start(start);
-          oscillator.stop(start + 1.4);
-        });
-
-        audioStopTimer = setTimeout(() => soundOrb.classList.remove("is-playing"), 1450);
+        source.start(start);
       }
 
       function frequencyForMidi(midi) {

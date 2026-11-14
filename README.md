@@ -15,7 +15,7 @@ Nail The Pitch is a small web app for training your **absolute pitch**, one note
   2. **Name the note** — recognize the note, whatever the octave.
   3. **Note & octave** — the full picture: identify note and octave in one go.
 
-- **Real-time generated audio** via the Web Audio API (no audio files to load).
+- **Recorded piano samples** played and pitch-shifted with the Web Audio API.
 - **Live session statistics** — time, correct answers, incorrect answers, and question count.
 - **Instant feedback** with random distractors for every question.
 - **Responsive, accessible interface** (ARIA, keyboard navigation).
@@ -28,18 +28,26 @@ Nail The Pitch is a small web app for training your **absolute pitch**, one note
 |------------|------|
 | HTML5 | Page structure |
 | CSS3 | Styling and responsive layout |
-| JavaScript (vanilla) | Game logic and audio synthesis |
-| Web Audio API | Sound generation (MIDI 36–83) |
+| JavaScript (vanilla) | Game logic and piano sample playback |
+| Web Audio API | Sample playback and pitch shifting (MIDI 36–95) |
 
 ## Installation
 
-No build step or packages required. Just clone or download the repository and open `index.html` in a modern browser.
+No build step or packages required. Clone or download the repository, add the six piano WAV files listed below to
+the project root, and serve the folder from a local web server. The browser
+fetches and decodes the WAVs, which does not work reliably from a `file://` URL.
 
 ```bash
 git clone <repository-url>
 cd nailthenote
-# open index.html in your browser
+python3 -m http.server 8000
+# then open http://localhost:8000
 ```
+
+The required mono samples are `C2.wav`, `C3.wav`, `C4.wav`, `C5.wav`,
+`C6.wav`, and `C7.wav` in the project root. C7 provides a nearby anchor for
+the game's highest notes (up to B6). Each question uses the nearest C sample
+and shifts its playback rate to the target pitch.
 
 **Tip:** for the best experience, use **headphones**.
 
@@ -57,7 +65,8 @@ cd nailthenote
 nailthenote/
 ├── index.html   # Home and game screen structure
 ├── styles.css   # Styling, layout, and animations
-├── script.js    # Game logic and audio synthesis (Web Audio API)
+├── script.js    # Game logic and sample playback (Web Audio API)
+├── C2.wav–C7.wav # Piano samples (provided separately)
 ├── favicon.png   # Site favicon
 ├── LICENSE.md   # LGPL-3.0 license text
 ├── README.md    # Project documentation
@@ -66,7 +75,11 @@ nailthenote/
 
 ## How the sound works
 
-Notes are synthesized on the fly from a MIDI number (36–83). Each note is built from a fundamental plus a few harmonics, with an amplitude envelope that produces a soft, realistic tone — all computed live with the Web Audio API.
+The app loads the six piano WAV samples on first playback. For each target MIDI
+pitch, it chooses the closest C-note sample and sets an `AudioBufferSourceNode`
+playback rate by the corresponding semitone interval. This keeps the recorded
+piano attack and decay while allowing the game to cover C2–B6 without a sample
+for every key.
 
 ## License
 
