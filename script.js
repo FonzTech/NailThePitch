@@ -37,6 +37,19 @@
         { midi: 96, url: "C7.wav" }
       ];
 
+      // Browsers block fetch() of local files under a file:// URL, so the WAV
+      // samples can only load from a real web server (http/https). When the
+      // page is opened straight from disk, fall back to the built-in synth.
+      const usesSamples = location.protocol === "http:" || location.protocol === "https:";
+
+      if (usesSamples) {
+        console.log("Nail The Pitch: using recorded piano WAV samples (pitch-shifted). " +
+          "Serving over http(s) lets the browser fetch the audio files.");
+      } else {
+        console.log("Nail The Pitch: using the built-in synthesizer engine. " +
+          "Opened from file:// where browsers block fetching local WAV samples.");
+      }
+
       const homeScreen = document.querySelector("#home-screen");
       const gameScreen = document.querySelector("#game-screen");
       const app = document.querySelector(".app");
@@ -77,6 +90,7 @@
       let timerInterval = null;
       let audioContext = null;
       let entryDelayTimer = null;
+      let audioStopTimer = null;
       let pianoSampleBuffersPromise = null;
       let activeSampleSource = null;
 
@@ -139,6 +153,7 @@
       function stopSession() {
         clearInterval(timerInterval);
         clearTimeout(entryDelayTimer);
+        clearTimeout(audioStopTimer);
         if (activeSampleSource) {
           activeSampleSource.onended = null;
           activeSampleSource.stop();
@@ -295,35 +310,43 @@
         );
       }
 
-      async function playNote() {
-        const context = await getAudioContext();
-        if (!context || !currentQuestion) return;
+      // Synthesizer fallback for file:// usage where the WAV samples can't be
+      // fetched. Builds a soft tone from a fundamental plus harmonics with an
+      // amplitude envelope, matching the original pre-sample behaviour.
+      function synthNote(context, midi, start) {
+        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+        const partials = [
+          { multiple: 1, gain: 0.72 },
+          { multiple: 2, gain: 0.18 },
+          { multiple: 3, gain: 0.07 }
+        ];
+        partials.forEach(({ multiple, gain: level }) => {
+          const oscillator = context.createOscillator();
+          const envelope = context.createGain();
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(frequency * multiple, start);
+          envelope.gain.setValueAtTime(0.0001, start);
+          envelope.gain.exponentialRampToValueAtTime(level, start + 0.025);
+          envelope.gain.exponentialRampToValueAtTime(0.0001, start + 1.35);
+          oscillator.connect(envelope);
+          envelope.connect(context.destination);
+          oscillator.start(start);
+          oscillator.stop(start + 1.4);
+        });
+        clearTimeout(audioStopTimer);
+        audioStopTimer = setTimeout(() => soundOrb.classList.remove("is-playing"), 1450);
+      }
 
-        const question = currentQuestion;
-        const midi = question.note.midi;
-        let buffers;
-        try {
-          buffers = await loadPianoSamples(context);
-        } catch (error) {
-          if (currentQuestion !== question || !activeMode) return;
-          console.error("Failed to load piano samples:", error);
-          feedback.textContent = "Could not load the piano WAVs. Make sure C2.wav–C7.wav are in the project root and open the app through a local web server.";
-          feedback.className = "feedback is-wrong";
-          return;
-        }
-
-        if (currentQuestion !== question || !activeMode) return;
+      function playSampleNote(context, midi, url) {
         if (activeSampleSource) {
           activeSampleSource.onended = null;
           activeSampleSource.stop();
           activeSampleSource = null;
         }
-
         const sample = nearestPianoSample(midi);
-        const buffer = buffers.get(sample.midi);
         const playbackRate = Math.pow(2, (midi - sample.midi) / 12);
         const source = context.createBufferSource();
-        source.buffer = buffer;
+        source.buffer = url;
         source.playbackRate.setValueAtTime(playbackRate, context.currentTime);
         source.connect(context.destination);
         activeSampleSource = source;
@@ -333,14 +356,43 @@
             soundOrb.classList.remove("is-playing");
           }
         };
+        source.start(context.currentTime + 0.02);
+      }
+
+      async function playNote() {
+        const context = await getAudioContext();
+        if (!context || !currentQuestion) return;
+
+        const question = currentQuestion;
+        const midi = question.note.midi;
 
         if (soundOrb.classList.contains("is-playing")) {
           soundOrb.classList.remove("is-playing");
           void soundOrb.offsetWidth;
         }
         soundOrb.classList.add("is-playing");
-        const start = context.currentTime + 0.02;
-        source.start(start);
+
+        if (!usesSamples) {
+          // Running from a plain file:// URL (no web server): fall back to the
+          // built-in synthesizer since the WAVs cannot be fetched.
+          synthNote(context, midi, context.currentTime + 0.02);
+          return;
+        }
+
+        let buffers;
+        try {
+          buffers = await loadPianoSamples(context);
+        } catch (error) {
+          if (currentQuestion !== question || !activeMode) return;
+          console.error("Failed to load piano samples:", error);
+          feedback.textContent = "Could not load the piano WAVs. Make sure C2.wav–C7.wav are in the project root.";
+          feedback.className = "feedback is-wrong";
+          return;
+        }
+
+        if (currentQuestion !== question || !activeMode) return;
+        const sample = nearestPianoSample(midi);
+        playSampleNote(context, midi, buffers.get(sample.midi));
       }
 
       function frequencyForMidi(midi) {
