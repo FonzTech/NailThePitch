@@ -2,6 +2,7 @@
       "use strict";
 
       const pitchClasses = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
+      const solfegeClasses = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
       const modes = {
         octave: {
           name: "Find the octave",
@@ -45,13 +46,20 @@
       const questionCount = document.querySelector("#question-count");
       const soundOrb = document.querySelector("#sound-orb");
       const octaveModal = document.querySelector("#octave-modal");
+      const octaveModalTitle = document.querySelector("#octave-modal-title");
+      const octaveModalCopy = document.querySelector("#octave-modal-copy");
+      const octaveModalKicker = document.querySelector("#octave-modal-kicker");
+      const noteModeFields = document.querySelector("#note-mode-fields");
       const octaveSelect = document.querySelector("#octave-select");
       const noteCountSelect = document.querySelector("#note-count-select");
+      const noteNotationSelect = document.querySelector("#note-notation-select");
       const octaveStart = document.querySelector("#octave-start");
 
       let activeMode = null;
+      let openForMode = null;
       let activeOctave = 4;
       let activeNoteCount = 6;
+      let activeNotation = "letters";
       let currentQuestion = null;
       let answered = false;
       let correct = 0;
@@ -86,10 +94,11 @@
         timer.textContent = formatTime(Math.floor((Date.now() - startedAt) / 1000));
       }
 
-      function startSession(mode, octave, noteCount) {
+      function startSession(mode, octave, noteCount, notation) {
         activeMode = mode;
         activeOctave = (typeof octave === "number") ? octave : 4;
         activeNoteCount = (typeof noteCount === "number") ? noteCount : 6;
+        activeNotation = (notation === "solfege") ? "solfege" : "letters";
         correct = 0;
         incorrect = 0;
         questions = 0;
@@ -157,6 +166,21 @@
         };
       }
 
+      // Return the pitch-class names for the active notation (letters vs solfège).
+      function notationClasses() {
+        return activeNotation === "solfege" ? solfegeClasses : pitchClasses;
+      }
+
+      // The currently-selected notation's name for a given MIDI note.
+      function notationName(midi) {
+        return notationClasses()[midi % 12];
+      }
+
+      // Notation-aware full label (e.g. "C#4" or "Do#4").
+      function notationLabel(midi) {
+        return `${notationName(midi)}${Math.floor(midi / 12) - 1}`;
+      }
+
       function makeQuestion() {
         // "note" mode is constrained to the chosen octave (2–6): C at MIDI
         // 12*(octave+1) up to B at 12*(octave+2)-1. Other modes use C2–B6.
@@ -171,17 +195,18 @@
           answer = String(note.octave);
         } else if (activeMode === "note") {
           // Show a subset of pitch options (correct note + distractors),
-          // sized by the chosen note count.
-          const others = pitchClasses.filter(name => name !== note.name);
+          // sized by the chosen note count, using the active notation.
+          const currentName = notationName(note.midi);
+          const others = notationClasses().filter(name => name !== currentName);
           const distractors = shuffle(others).slice(0, Math.max(0, activeNoteCount - 1));
-          choices = shuffle([note.name, ...distractors]);
-          answer = note.name;
+          choices = shuffle([currentName, ...distractors]);
+          answer = currentName;
         } else {
           const possibleNotes = [];
           for (let midi = 36; midi <= 95; midi++) possibleNotes.push(pitchFromMidi(midi));
           const distractors = shuffle(possibleNotes.filter(pitch => pitch.midi !== note.midi)).slice(0, 11);
           choices = shuffle([note, ...distractors]).map(pitch => ({
-            label: pitch.label,
+            label: notationLabel(pitch.midi),
             answer: pitch.midi
           }));
           answer = note.midi;
@@ -291,8 +316,8 @@
         const rightAnswer = activeMode === "octave"
           ? `${currentQuestion.note.name}${currentQuestion.note.octave}`
           : activeMode === "note"
-            ? currentQuestion.note.name
-            : currentQuestion.note.label;
+            ? notationName(currentQuestion.note.midi)
+            : notationLabel(currentQuestion.note.midi);
         const hertz = Math.round(frequencyForMidi(currentQuestion.note.midi));
 
         if (isCorrect) {
@@ -318,12 +343,29 @@
         nextButton.focus();
       }
 
-      function openOctaveModal() {
+      function openOctaveModal(mode) {
+        openForMode = mode;
+
         // Show each octave's frequency range in the dropdown options.
         [...octaveSelect.options].forEach(option => {
           const bounds = octaveHzBounds(Number(option.value));
           option.textContent = `${option.value} (${bounds.start}–${bounds.end} Hz)`;
         });
+
+        // Adapt the modal to the chosen game. The full game always spans all
+        // octaves and all 12 notes, so its octave/count fields aren't relevant.
+        if (mode === "full") {
+          octaveModalKicker.textContent = "03 / THE FULL PICTURE";
+          octaveModalTitle.textContent = "Note & octave";
+          octaveModalCopy.textContent = "Pick the note names to use.";
+          noteModeFields.hidden = true;
+        } else {
+          octaveModalKicker.textContent = "02 / STEP TWO";
+          octaveModalTitle.textContent = "Name the note";
+          octaveModalCopy.textContent = "Choose an octave and how many notes to pick from.";
+          noteModeFields.hidden = false;
+        }
+
         activeOctave = Number(octaveSelect.value) || 4;
         // Show and make the modal interactive.
         octaveModal.removeAttribute("inert");
@@ -339,23 +381,25 @@
         octaveModal.setAttribute("inert", "");
       }
 
-      function beginNoteGame() {
+      function beginGame() {
+        const mode = openForMode || "note";
         const octave = Number(octaveSelect.value) || 4;
         const noteCount = Number(noteCountSelect.value) || 6;
+        const notation = noteNotationSelect.value || "letters";
         closeOctaveModal();
-        startSession("note", octave, noteCount);
+        startSession(mode, octave, noteCount, notation);
       }
 
       document.querySelectorAll("[data-mode]").forEach(button => {
         button.addEventListener("click", () => {
-          if (button.dataset.mode === "note") {
-            openOctaveModal();
+          if (button.dataset.mode === "note" || button.dataset.mode === "full") {
+            openOctaveModal(button.dataset.mode);
           } else {
             startSession(button.dataset.mode);
           }
         });
       });
-      octaveStart.addEventListener("click", beginNoteGame);
+      octaveStart.addEventListener("click", beginGame);
       octaveModal.querySelectorAll("[data-modal-close]").forEach(el => {
         el.addEventListener("click", closeOctaveModal);
       });

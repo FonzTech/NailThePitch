@@ -120,28 +120,37 @@
   <div class="modal" id="octave-modal" hidden inert>
     <div class="modal-backdrop" data-modal-close></div>
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="octave-modal-title">
-      <p class="modal-kicker">02 / STEP TWO</p>
+      <p class="modal-kicker" id="octave-modal-kicker">02 / STEP TWO</p>
       <h2 class="modal-title" id="octave-modal-title">Name the note</h2>
-      <p class="modal-copy">Choose an octave and how many notes to pick from.</p>
-      <label class="modal-field" for="octave-select">
-        <span class="modal-field-label">Octave</span>
-        <select class="modal-select" id="octave-select" name="octave">
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4" selected>4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-        </select>
-      </label>
-      <label class="modal-field" for="note-count-select">
-        <span class="modal-field-label">Notes to choose from</span>
-        <select class="modal-select" id="note-count-select" name="note-count">
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="6" selected>6</option>
-          <option value="8">8</option>
-          <option value="10">10</option>
-          <option value="12">12</option>
+      <p class="modal-copy" id="octave-modal-copy">Choose an octave and how many notes to pick from.</p>
+      <div id="note-mode-fields">
+        <label class="modal-field" for="octave-select">
+          <span class="modal-field-label">Octave</span>
+          <select class="modal-select" id="octave-select" name="octave">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+        <label class="modal-field" for="note-count-select">
+          <span class="modal-field-label">Notes to choose from</span>
+          <select class="modal-select" id="note-count-select" name="note-count">
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="6" selected>6</option>
+            <option value="8">8</option>
+            <option value="10">10</option>
+            <option value="12">12</option>
+          </select>
+        </label>
+      </div>
+      <label class="modal-field" for="note-notation-select">
+        <span class="modal-field-label">Note names</span>
+        <select class="modal-select" id="note-notation-select" name="note-notation">
+          <option value="letters" selected>C D E F G A B</option>
+          <option value="solfege">Do Re Mi Fa Sol La Si</option>
         </select>
       </label>
       <div class="modal-actions">
