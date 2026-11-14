@@ -33,21 +33,37 @@ Nail The Pitch is a small web app for training your **absolute pitch**, one note
 
 ## Installation
 
-No build step or packages required. Clone or download the repository, add the six piano WAV files listed below to
-the project root, and serve the folder from a local web server. The browser
-fetches and decodes the WAVs, which does not work reliably from a `file://` URL.
+No build step or packages required. Over a real web server the app plays
+recorded piano WAVs; opened directly from disk it automatically falls back to a
+built-in synthesized tone. The two paths are described below.
+
+### Option A — over a web server (recorded piano samples)
+
+The browser must be able to fetch the WAV files, which requires serving the
+folder (plain `file://` won't work). Add the six mono samples to the project
+root and start a simple server:
 
 ```bash
 git clone <repository-url>
 cd nailthenote
+# add C2.wav … C7.wav here
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-The required mono samples are `C2.wav`, `C3.wav`, `C4.wav`, `C5.wav`,
-`C6.wav`, and `C7.wav` in the project root. C7 provides a nearby anchor for
-the game's highest notes (up to B6). Each question uses the nearest C sample
-and shifts its playback rate to the target pitch.
+The required samples are `C2.wav`, `C3.wav`, `C4.wav`, `C5.wav`, `C6.wav`, and
+`C7.wav`, recorded from the same piano. C7 provides a nearby anchor for the
+game's highest notes (up to B6).
+
+### Option B — direct from disk (no server)
+
+Just open `index.html` in a browser. Because WAV fetching is blocked under
+`file://`, the app detects this and uses a built-in Web Audio synthesizer
+instead, so the game still works with no files or server.
+
+The detected engine is also announced in the browser console on load, e.g.
+`Nail The Pitch: using recorded piano WAV samples (pitch-shifted).` or
+`Nail The Pitch: using the built-in synthesizer engine.`
 
 **Tip:** for the best experience, use **headphones**.
 
@@ -75,11 +91,19 @@ nailthenote/
 
 ## How the sound works
 
-The app loads the six piano WAV samples on first playback. For each target MIDI
-pitch, it chooses the closest C-note sample and sets an `AudioBufferSourceNode`
-playback rate by the corresponding semitone interval. This keeps the recorded
-piano attack and decay while allowing the game to cover C2–B6 without a sample
-for every key.
+The app serves two playback paths and picks one automatically:
+
+- **Web server (http/https):** the six piano WAVs are fetched and decoded on
+  first playback. For each target MIDI pitch, the closest C-note sample is
+  chosen and its `AudioBufferSourceNode` playback rate set to the matching
+  semitone interval. This preserves the recorded attack and decay while
+  covering C2–B6 without a sample for every key.
+- **Direct from disk (file://):** `fetch` of local files is blocked, so the app
+  falls back to a built-in synthesizer that builds each note from a fundamental
+  plus harmonics with an amplitude envelope.
+
+The check is `location.protocol` — a real server means samples, otherwise synth.
+The choice is logged to the browser console on startup.
 
 ## License
 
