@@ -21,6 +21,12 @@
           title: "Name the full pitch.",
           copy: "Choose the note and octave you heard.",
           kicker: "The full picture"
+        },
+        mock: {
+          name: "Mock game",
+          title: "Mock game",
+          copy: "This game isn't built yet. Come back soon.",
+          kicker: "Coming soon"
         }
       };
 
@@ -144,10 +150,42 @@
         startedAt = Date.now();
         clearInterval(timerInterval);
         timerInterval = setInterval(updateTimer, 1000);
+
+        if (mode === "mock") {
+          // Stub game: no audio or questions yet, just a placeholder panel.
+          hideListenPanel();
+          showMockStub();
+          return;
+        }
+
         makeQuestion();
         clearTimeout(entryDelayTimer);
         entryDelayTimer = setTimeout(playNote, settings.entryDelay);
         primeAudio();
+      }
+
+      function hideListenPanel() {
+        const listen = document.querySelector(".listen-panel");
+        if (listen) {
+          listen.dataset.hiddenByStub = "true";
+          listen.hidden = true;
+        }
+      }
+
+      function showMockStub() {
+        answerGrid.replaceChildren();
+        feedback.textContent = "";
+        feedback.className = "feedback";
+        nextButton.hidden = true;
+        answerGrid.hidden = true;
+
+        const stub = document.createElement("div");
+        stub.className = "mock-stub";
+        stub.setAttribute("role", "status");
+        const text = document.createElement("p");
+        text.textContent = "This game is a stub for now. We'll build it out soon.";
+        stub.append(text);
+        answerGrid.parentElement.append(stub);
       }
 
       function stopSession() {
@@ -164,6 +202,17 @@
           audioContext.close();
           audioContext = null;
         }
+        // Clean up any mock stub state.
+        const stub = gameScreen.querySelector(".mock-stub");
+        if (stub) stub.remove();
+        answerGrid.hidden = false;
+        const listen = gameScreen.querySelector(".listen-panel");
+        if (listen && listen.dataset.hiddenByStub) {
+          delete listen.dataset.hiddenByStub;
+          listen.hidden = false;
+        }
+        const answer = gameScreen.querySelector(".answer-panel");
+        if (answer && answer.dataset.hiddenByStub) delete answer.dataset.hiddenByStub;
         gameScreen.hidden = true;
         homeScreen.hidden = false;
         app.classList.remove("is-playing");

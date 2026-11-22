@@ -286,6 +286,11 @@ h1, h2, p { margin-top: 0; }
   outline: none;
 }
 
+.mode-card-soon {
+  border-style: dashed;
+  opacity: .82;
+}
+
 .mode-number {
   margin-bottom: 13px;
   color: var(--muted-2);
@@ -674,6 +679,16 @@ h1, h2, p { margin-top: 0; }
   gap: 8px;
 }
 
+.mock-stub {
+  margin-top: 6px;
+  padding: 26px 22px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--muted);
+}
+.mock-stub p { margin: 0; font-size: 15px; line-height: 1.6; }
+
 .answer-button {
   min-width: 0;
   min-height: clamp(39px, 6vh, 51px);
@@ -782,11 +797,25 @@ h1, h2, p { margin-top: 0; }
   .home-screen { justify-content: center; }
   .hero-title { font-size: clamp(40px, 11vw, 53px); }
   .hero-copy { max-width: 340px; font-size: 14px; line-height: 1.55; }
-  .mode-grid { grid-template-columns: 1fr; gap: 7px; }
+  .mode-grid {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-inline: -14px;
+    padding-inline: 14px;
+  }
+  .mode-grid::-webkit-scrollbar { display: none; }
   .mode-card {
+    flex: 0 0 100%;
+    min-width: 0;
     min-height: 71px;
     padding: 10px 13px 10px 49px;
     justify-content: center;
+    scroll-snap-align: start;
   }
   .mode-number { position: absolute; top: 12px; left: 13px; margin: 0; }
   .mode-name { margin-top: 20px; margin-bottom: 3px; font-size: 17px; }
