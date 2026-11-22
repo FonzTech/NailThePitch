@@ -44,6 +44,12 @@
           <h2>Choose your training</h2>
           <span>Start wherever you are</span>
         </div>
+        <div class="carousel-indicators" role="group" aria-label="Select a training game">
+          <button class="carousel-indicator" type="button" aria-label="Show game 1 of 4" aria-pressed="true" data-carousel-index="0"></button>
+          <button class="carousel-indicator" type="button" aria-label="Show game 2 of 4" aria-pressed="false" data-carousel-index="1"></button>
+          <button class="carousel-indicator" type="button" aria-label="Show game 3 of 4" aria-pressed="false" data-carousel-index="2"></button>
+          <button class="carousel-indicator" type="button" aria-label="Show game 4 of 4" aria-pressed="false" data-carousel-index="3"></button>
+        </div>
         <div class="mode-grid">
           <button class="mode-card" type="button" data-mode="octave">
             <span class="mode-number">01 / STEP ONE</span>
@@ -61,6 +67,12 @@
             <span class="mode-number">03 / THE FULL PICTURE</span>
             <span class="mode-name">Note &amp; octave</span>
             <span class="mode-description">Name the full pitch in one go.</span>
+            <span class="mode-arrow" aria-hidden="true">↗</span>
+          </button>
+          <button class="mode-card" type="button" data-mode="detect">
+            <span class="mode-number">04 / LIVE PLAY</span>
+            <span class="mode-name">Live note detection</span>
+            <span class="mode-description">Play the note on your guitar, right into the mic.</span>
             <span class="mode-arrow" aria-hidden="true">↗</span>
           </button>
         </div>
@@ -114,6 +126,52 @@
           </section>
         </div>
       </section>
+
+      <section class="detect-screen" id="detect-screen" aria-label="Live note detection" hidden>
+        <div class="game-top">
+          <button class="back-button" id="detect-back-button" type="button">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M12.5 4.5 7 10l5.5 5.5M7.5 10h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back to menu
+          </button>
+          <div class="game-mode-label">Now training<strong id="detect-mode-name">Live note detection</strong></div>
+        </div>
+
+        <div class="stats" aria-label="Session statistics">
+          <div class="stat"><span class="stat-label">Time</span><strong class="stat-value" id="detect-timer">00:00</strong></div>
+          <div class="stat stat-correct"><span class="stat-label">Correct</span><strong class="stat-value" id="detect-correct-count">0</strong></div>
+          <div class="stat stat-incorrect"><span class="stat-label">Incorrect</span><strong class="stat-value" id="detect-incorrect-count">0</strong></div>
+          <div class="stat"><span class="stat-label">Questions</span><strong class="stat-value" id="detect-question-count">0</strong></div>
+        </div>
+
+        <div class="detect-panel">
+          <section class="detect-side detect-target-side">
+            <div class="detect-mic-indicator" id="detect-mic-indicator" aria-hidden="true" hidden>
+              <svg viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="detect-kicker">Play this note</span>
+            <div class="detect-target" id="detect-target">—</div>
+            <p class="detect-copy" id="detect-copy">Pluck the string. We're listening in the selected octaves.</p>
+            <button class="detect-mic-btn" id="detect-mic-btn" type="button">
+              Enable microphone
+            </button>
+            <p class="detect-mic-status" id="detect-mic-status" role="status">Microphone is off.</p>
+          </section>
+
+          <section class="detect-side detect-read-side" aria-label="Heard note">
+            <span class="detect-kicker">Heard note</span>
+            <div class="detect-readout" id="detect-readout">—</div>
+            <p class="detect-copy detect-read-copy" id="detect-read-copy">Play the target note to lock it in.</p>
+            <div class="detect-bar" id="detect-bar" aria-hidden="true"><div class="detect-bar-fill" id="detect-bar-fill"></div></div>
+          </section>
+        </div>
+
+        <p class="feedback detect-feedback" id="detect-feedback" role="status" aria-live="polite"></p>
+      </section>
     </main>
   </div>
 
@@ -156,6 +214,25 @@
       <div class="modal-actions">
         <button class="modal-button modal-cancel" id="octave-cancel" type="button" data-modal-close>Cancel</button>
         <button class="modal-button modal-start" id="octave-start" type="button">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="detect-modal" hidden inert>
+    <div class="modal-backdrop" data-detect-close></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="detect-modal-title">
+      <p class="modal-kicker">04 / LIVE PLAY</p>
+      <h2 class="modal-title" id="detect-modal-title">Live note detection</h2>
+      <p class="modal-copy" id="detect-modal-copy">Choose your octaves and enable microphone access so the game can listen to your instrument. Audio is analyzed in your browser and is not recorded.</p>
+      <fieldset class="modal-field octave-fieldset" id="detect-octave-fields">
+        <legend class="modal-field-label">Octaves</legend>
+        <div class="octave-checkbox-row" id="detect-octave-checkboxes"></div>
+      </fieldset>
+      <p class="detect-mic-check-status" id="detect-mic-check-status" role="status" aria-live="polite">Check microphone access before starting.</p>
+      <button class="modal-button modal-start detect-mic-check-button" id="detect-mic-check" type="button">Check microphone</button>
+      <div class="modal-actions">
+        <button class="modal-button modal-cancel" id="detect-cancel" type="button" data-detect-close>Cancel</button>
+        <button class="modal-button modal-start" id="detect-start" type="button" disabled>Start</button>
       </div>
     </div>
   </div>
