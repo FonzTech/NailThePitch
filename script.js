@@ -22,11 +22,11 @@
           copy: "Choose the note and octave you heard.",
           kicker: "The full picture"
         },
-        mock: {
-          name: "Mock game",
-          title: "Mock game",
-          copy: "This game isn't built yet. Come back soon.",
-          kicker: "Coming soon"
+        detect: {
+          name: "Live note detection",
+          title: "Live note detection",
+          copy: "Play the target note on your guitar and let the mic hear it.",
+          kicker: "Live play"
         }
       };
 
@@ -81,6 +81,49 @@
       const noteCountSelect = document.querySelector("#note-count-select");
       const noteNotationSelect = document.querySelector("#note-notation-select");
       const octaveStart = document.querySelector("#octave-start");
+
+      // Live note detection (guitar) references.
+      const detectScreen = document.querySelector("#detect-screen");
+      const detectModeName = document.querySelector("#detect-mode-name");
+      const detectTarget = document.querySelector("#detect-target");
+      const detectCopy = document.querySelector("#detect-copy");
+      const detectMicBtn = document.querySelector("#detect-mic-btn");
+      const detectMicStatus = document.querySelector("#detect-mic-status");
+      const detectReadout = document.querySelector("#detect-readout");
+      const detectReadCopy = document.querySelector("#detect-read-copy");
+      const detectBarFill = document.querySelector("#detect-bar-fill");
+      const detectOctaves = document.querySelector("#detect-octaves");
+      const detectFeedback = document.querySelector("#detect-feedback");
+      const detectTimer = document.querySelector("#detect-timer");
+      const detectCorrectCount = document.querySelector("#detect-correct-count");
+      const detectIncorrectCount = document.querySelector("#detect-incorrect-count");
+      const detectQuestionCount = document.querySelector("#detect-question-count");
+      const detectModal = document.querySelector("#detect-modal");
+      const detectOctaveCheckboxes = document.querySelector("#detect-octave-checkboxes");
+      const detectStart = document.querySelector("#detect-start");
+
+      // Live note detection (guitar) state.
+      const detect = {
+        active: false,
+        octaves: [2, 3, 4, 5],
+        target: null,
+        correctCount: 0,
+        incorrectCount: 0,
+        questions: 0,
+        startedAt: 0,
+        timerInterval: null,
+        stream: null,
+        audioContext: null,
+        analyser: null,
+        rafId: null,
+        micEnabled: false,
+        stableMidi: null,
+        stableCount: 0,
+        locked: false
+      };
+      // Detectable note range: E2 (MIDI 40) to E5 (MIDI 76).
+      const DETECT_LOW_MIDI = 40;
+      const DETECT_HIGH_MIDI = 76;
 
       let activeMode = null;
       let openForMode = null;
@@ -151,41 +194,10 @@
         clearInterval(timerInterval);
         timerInterval = setInterval(updateTimer, 1000);
 
-        if (mode === "mock") {
-          // Stub game: no audio or questions yet, just a placeholder panel.
-          hideListenPanel();
-          showMockStub();
-          return;
-        }
-
         makeQuestion();
         clearTimeout(entryDelayTimer);
         entryDelayTimer = setTimeout(playNote, settings.entryDelay);
         primeAudio();
-      }
-
-      function hideListenPanel() {
-        const listen = document.querySelector(".listen-panel");
-        if (listen) {
-          listen.dataset.hiddenByStub = "true";
-          listen.hidden = true;
-        }
-      }
-
-      function showMockStub() {
-        answerGrid.replaceChildren();
-        feedback.textContent = "";
-        feedback.className = "feedback";
-        nextButton.hidden = true;
-        answerGrid.hidden = true;
-
-        const stub = document.createElement("div");
-        stub.className = "mock-stub";
-        stub.setAttribute("role", "status");
-        const text = document.createElement("p");
-        text.textContent = "This game is a stub for now. We'll build it out soon.";
-        stub.append(text);
-        answerGrid.parentElement.append(stub);
       }
 
       function stopSession() {
@@ -202,17 +214,6 @@
           audioContext.close();
           audioContext = null;
         }
-        // Clean up any mock stub state.
-        const stub = gameScreen.querySelector(".mock-stub");
-        if (stub) stub.remove();
-        answerGrid.hidden = false;
-        const listen = gameScreen.querySelector(".listen-panel");
-        if (listen && listen.dataset.hiddenByStub) {
-          delete listen.dataset.hiddenByStub;
-          listen.hidden = false;
-        }
-        const answer = gameScreen.querySelector(".answer-panel");
-        if (answer && answer.dataset.hiddenByStub) delete answer.dataset.hiddenByStub;
         gameScreen.hidden = true;
         homeScreen.hidden = false;
         app.classList.remove("is-playing");
@@ -539,12 +540,336 @@
         startSession(mode, octave, noteCount, notation);
       }
 
+      // ---- Live note detection (guitar) ----
+
+      function noteShortLabel(midi) {
+        return `${pitchClasses[midi % 12]}${Math.floor(midi / 12) - 1}`;
+      }
+
+      function detectRangeForOctave(oct) {
+        return {
+          lo: Math.max(DETECT_LOW_MIDI, 12 * (oct + 1)),
+          hi: Math.min(DETECT_HIGH_MIDI, 12 * (oct + 2) - 1)
+        };
+      }
+
+      function openDetectModal() {
+        detectOctaveCheckboxes.replaceChildren();
+        [2, 3, 4, 5].forEach(oct => {
+          const { lo, hi } = detectRangeForOctave(oct);
+          const label = document.createElement("label");
+          label.className = "octave-check";
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.value = String(oct);
+          input.checked = true;
+          const span = document.createElement("span");
+          span.textContent = `Octave ${oct}  ·  ${noteShortLabel(lo)}–${noteShortLabel(hi)}`;
+          label.append(input, span);
+          detectOctaveCheckboxes.append(label);
+        });
+        detectModal.removeAttribute("inert");
+        detectModal.hidden = false;
+        detectModal.querySelector(".modal-dialog").focus();
+      }
+
+      function closeDetectModal() {
+        detectModal.hidden = true;
+        detectModal.setAttribute("inert", "");
+      }
+
+      function beginDetect() {
+        const checked = [...detectOctaveCheckboxes.querySelectorAll("input[type=checkbox]:checked")]
+          .map(input => Number(input.value));
+        closeDetectModal();
+        detect.octaves = checked.length ? checked : [2, 3, 4, 5];
+        startDetectSession();
+      }
+
+      function startDetectSession() {
+        activeMode = "detect";
+        detect.active = true;
+        detect.correctCount = 0;
+        detect.incorrectCount = 0;
+        detect.questions = 0;
+        detect.locked = false;
+        detect.lastHandledMidi = null;
+        detectTarget.textContent = "—";
+        detectReadout.textContent = "—";
+        detectBarFill.style.width = "0%";
+        detectFeedback.textContent = "";
+        detectFeedback.className = "feedback detect-feedback";
+        detectCorrectCount.textContent = "0";
+        detectIncorrectCount.textContent = "0";
+        detectQuestionCount.textContent = "0";
+        detectModeName.textContent = modes.detect.name;
+        renderDetectOctaves();
+
+        homeScreen.hidden = true;
+        detectScreen.hidden = false;
+        app.classList.add("is-playing");
+
+        detect.startedAt = Date.now();
+        clearInterval(detect.timerInterval);
+        detect.timerInterval = setInterval(() => {
+          detectTimer.textContent = formatTime(Math.floor((Date.now() - detect.startedAt) / 1000));
+        }, 1000);
+
+        generateDetectTarget();
+      }
+
+      function renderDetectOctaves() {
+        detectOctaves.replaceChildren();
+        detect.octaves.forEach(oct => {
+          const chip = document.createElement("span");
+          chip.className = "octave-chip";
+          chip.textContent = `Oct ${oct}`;
+          detectOctaves.append(chip);
+        });
+      }
+
+      function generateDetectTarget() {
+        const candidates = [];
+        detect.octaves.forEach(oct => {
+          const { lo, hi } = detectRangeForOctave(oct);
+          for (let m = lo; m <= hi; m++) candidates.push(m);
+        });
+        let pick = candidates[randomInt(0, candidates.length - 1)];
+        if (candidates.length > 1 && detect.target) {
+          let guard = 0;
+          while (pick === detect.target.midi && guard++ < 20) {
+            pick = candidates[randomInt(0, candidates.length - 1)];
+          }
+        }
+        detect.target = pitchFromMidi(pick);
+        detect.locked = false;
+        detect.lastHandledMidi = null;
+        detect.stableMidi = null;
+        detect.stableCount = 0;
+
+        detectTarget.textContent = noteShortLabel(pick);
+        detectTarget.classList.remove("hit");
+        detectReadout.textContent = "—";
+        detectReadCopy.textContent = "Play the target note to lock it in.";
+        detectBarFill.style.width = "0%";
+        detectFeedback.textContent = "";
+        detectFeedback.className = "feedback detect-feedback";
+
+        detect.questions++;
+        detectQuestionCount.textContent = String(detect.questions);
+
+        setMicStatus(detect.micEnabled
+          ? "Listening… pluck the target note."
+          : "Enable the microphone to play.");
+      }
+
+      function setMicStatus(text) {
+        if (detectMicStatus) detectMicStatus.textContent = text;
+      }
+
+      async function enableDetectMic() {
+        if (detect.micEnabled || !detect.active) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setMicStatus("Microphone needs a secure (HTTPS) connection.");
+          detectFeedback.textContent = "Microphone unavailable here.";
+          detectFeedback.className = "feedback detect-feedback is-wrong";
+          return;
+        }
+        try {
+          detect.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const Ctor = window.AudioContext || window.webkitAudioContext;
+          detect.audioContext = new Ctor();
+          const source = detect.audioContext.createMediaStreamSource(detect.stream);
+          const analyser = detect.audioContext.createAnalyser();
+          analyser.fftSize = 2048;
+          analyser.smoothingTimeConstant = 0.3;
+          source.connect(analyser);
+          detect.analyser = analyser;
+          detect.micEnabled = true;
+          detectMicBtn.textContent = "Microphone on";
+          detectMicBtn.disabled = true;
+          setMicStatus("Listening… pluck the target note.");
+          const tick = () => {
+            if (!detect.active) return;
+            if (detect.micEnabled && detect.analyser) detectPitchTick();
+            detect.rafId = requestAnimationFrame(tick);
+          };
+          detect.rafId = requestAnimationFrame(tick);
+        } catch (error) {
+          setMicStatus("Couldn't access the microphone. Check permissions.");
+          detectFeedback.textContent = "Microphone access was denied or unavailable.";
+          detectFeedback.className = "feedback detect-feedback is-wrong";
+        }
+      }
+
+      // Estimate the fundamental frequency (Hz) using autocorrelation with
+      // parabolic interpolation. Returns null when the signal is too weak.
+      function detectPitchFrequency() {
+        const buflen = detect.analyser.fftSize;
+        const timeData = new Float32Array(buflen);
+        detect.analyser.getFloatTimeDomainData(timeData);
+
+        let sumSq = 0;
+        for (let i = 0; i < buflen; i++) sumSq += timeData[i] * timeData[i];
+        const rms = Math.sqrt(sumSq / buflen);
+        if (rms < 0.008) return null;
+
+        const sampleRate = detect.audioContext.sampleRate;
+        const minFreq = 75;
+        const maxFreq = 720;
+        const maxLag = Math.min(Math.floor(sampleRate / minFreq), buflen - 1);
+        const minLag = Math.floor(sampleRate / maxFreq);
+
+        const nsdf = new Float32Array(maxLag - minLag + 1);
+        let offset = 0;
+        for (let lag = minLag; lag <= maxLag; lag++) {
+          let sum = 0;
+          for (let i = 0; i + lag < buflen; i++) sum += timeData[i] * timeData[i + lag];
+          nsdf[offset++] = sum / (buflen - lag);
+        }
+
+        let peak = -1;
+        let peakIdx = -1;
+        for (let i = 1; i < nsdf.length - 1; i++) {
+          if (nsdf[i] > nsdf[i - 1] && nsdf[i] >= nsdf[i + 1] && nsdf[i] > 0 && nsdf[i] > peak) {
+            peak = nsdf[i];
+            peakIdx = i;
+          }
+        }
+        if (peakIdx < 0) return null;
+        return sampleRate / (minLag + peakIdx);
+      }
+
+      function midiFromFrequency(freq) {
+        return Math.round(12 * (Math.log(freq / 440) / Math.log(2)) + 69);
+      }
+
+      function updateDetectReadout(freq) {
+        if (freq === null || freq <= 0) {
+          detectReadout.textContent = "—";
+          detectBarFill.style.width = "0%";
+          return;
+        }
+        detectReadout.textContent = noteShortLabel(midiFromFrequency(freq));
+        const norm = Math.max(0, Math.min(1, (freq - 82) / (659 - 82)));
+        detectBarFill.style.width = `${Math.round(norm * 100)}%`;
+      }
+
+      function detectPitchTick() {
+        const freq = detectPitchFrequency();
+        updateDetectReadout(freq);
+        if (freq === null) {
+          detect.stableCount = 0;
+          detect.stableMidi = null;
+          return;
+        }
+        const midi = midiFromFrequency(freq);
+        if (detect.locked) return;
+
+        if (detect.stableMidi === midi) {
+          detect.stableCount++;
+        } else {
+          detect.stableMidi = midi;
+          detect.stableCount = 1;
+        }
+        if (detect.stableCount < 6) return;
+
+        if (midi === detect.target.midi) {
+          handleDetectHit(midi);
+        } else if (detect.lastHandledMidi !== midi) {
+          handleDetectMiss(midi);
+          detect.lastHandledMidi = midi;
+        }
+        detect.stableMidi = null;
+        detect.stableCount = 0;
+      }
+
+      function handleDetectHit() {
+        detect.locked = true;
+        detect.correctCount++;
+        detectCorrectCount.textContent = String(detect.correctCount);
+        detectReadCopy.textContent = "Got it! Play the next note below.";
+        detectBarFill.style.width = "100%";
+
+        const hertz = Math.round(frequencyForMidi(detect.target.midi));
+        detectFeedback.textContent = `That's right — ${noteShortLabel(detect.target.midi)} (${hertz} Hz). Nice ear!`;
+        detectFeedback.className = "feedback detect-feedback is-correct";
+        detectTarget.classList.add("hit");
+
+        setTimeout(() => {
+          if (detect.active && !detectScreen.hidden) generateDetectTarget();
+        }, 1200);
+      }
+
+      function handleDetectMiss(midi) {
+        detect.incorrectCount++;
+        detectIncorrectCount.textContent = String(detect.incorrectCount);
+        const heard = noteShortLabel(midi);
+        detectReadCopy.textContent = `Heard ${heard} — keep trying the target.`;
+        detectFeedback.textContent = `That was ${heard}, not ${noteShortLabel(detect.target.midi)}. Try again!`;
+        detectFeedback.className = "feedback detect-feedback is-wrong";
+        detectReadout.classList.add("miss");
+        setTimeout(() => detectReadout.classList.remove("miss"), 400);
+
+        // Signal the error on the target note too, then revert it — the same
+        // note stays up until the player plays it correctly.
+        detectTarget.classList.add("shake");
+        setTimeout(() => detectTarget.classList.remove("shake"), 450);
+      }
+
+      function stopDetectSession() {
+        detect.active = false;
+        if (detect.rafId) {
+          cancelAnimationFrame(detect.rafId);
+          detect.rafId = null;
+        }
+        if (detect.stream) {
+          detect.stream.getTracks().forEach(track => track.stop());
+          detect.stream = null;
+        }
+        if (detect.audioContext) {
+          detect.audioContext.close();
+          detect.audioContext = null;
+        }
+        clearInterval(detect.timerInterval);
+        detect.timerInterval = null;
+        detect.analyser = null;
+        detect.micEnabled = false;
+        detect.locked = false;
+        detect.target = null;
+        detect.stableMidi = null;
+        detect.stableCount = 0;
+        detect.lastHandledMidi = null;
+
+        detectMicBtn.textContent = "Enable microphone";
+        detectMicBtn.disabled = false;
+
+        detectScreen.hidden = true;
+        homeScreen.hidden = false;
+        app.classList.remove("is-playing");
+        activeMode = null;
+      }
+
+      // Wire the live detection controls.
+      detectStart.addEventListener("click", beginDetect);
+      detectModal.querySelectorAll("[data-detect-close]").forEach(el => {
+        el.addEventListener("click", closeDetectModal);
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !detectModal.hidden) closeDetectModal();
+      });
+      detectMicBtn.addEventListener("click", enableDetectMic);
+      document.querySelector("#detect-back-button").addEventListener("click", stopDetectSession);
+
       document.querySelectorAll("[data-mode]").forEach(button => {
         button.addEventListener("click", () => {
-          if (button.dataset.mode === "note" || button.dataset.mode === "full") {
-            openOctaveModal(button.dataset.mode);
+          const mode = button.dataset.mode;
+          if (mode === "note" || mode === "full") {
+            openOctaveModal(mode);
+          } else if (mode === "detect") {
+            openDetectModal();
           } else {
-            startSession(button.dataset.mode);
+            startSession(mode);
           }
         });
       });
@@ -558,7 +883,8 @@
       document.querySelector("#back-button").addEventListener("click", stopSession);
       document.querySelector(".brand").addEventListener("click", event => {
         event.preventDefault();
-        if (activeMode) stopSession();
+        if (activeMode === "detect") stopDetectSession();
+        else if (activeMode) stopSession();
       });
       document.querySelector("#play-button").addEventListener("click", playNote);
       nextButton.addEventListener("click", nextQuestion);
