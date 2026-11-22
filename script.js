@@ -65,6 +65,9 @@
       const questionCopy = document.querySelector("#question-copy");
       const questionKicker = document.querySelector("#question-kicker");
       const answerGrid = document.querySelector("#answer-grid");
+      const modeGrid = document.querySelector(".mode-grid");
+      const modeCards = [...modeGrid.querySelectorAll(".mode-card")];
+      const carouselIndicators = [...document.querySelectorAll(".carousel-indicator")];
       const feedback = document.querySelector("#feedback");
       const nextButton = document.querySelector("#next-button");
       const timer = document.querySelector("#timer");
@@ -860,6 +863,51 @@
       });
       detectMicBtn.addEventListener("click", enableDetectMic);
       document.querySelector("#detect-back-button").addEventListener("click", stopDetectSession);
+
+      function updateCarouselIndicators() {
+        if (!window.matchMedia("(max-width: 460px)").matches) return;
+
+        const gridRect = modeGrid.getBoundingClientRect();
+        const inset = parseFloat(getComputedStyle(modeGrid).scrollPaddingLeft) || 0;
+        const snapEdge = gridRect.left + inset;
+        let activeIndex = 0;
+        let closestDistance = Infinity;
+
+        modeCards.forEach((card, index) => {
+          const distance = Math.abs(card.getBoundingClientRect().left - snapEdge);
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            activeIndex = index;
+          }
+        });
+
+        carouselIndicators.forEach((indicator, index) => {
+          indicator.setAttribute("aria-pressed", String(index === activeIndex));
+        });
+      }
+
+      let carouselUpdateFrame = null;
+      modeGrid.addEventListener("scroll", () => {
+        if (carouselUpdateFrame !== null) cancelAnimationFrame(carouselUpdateFrame);
+        carouselUpdateFrame = requestAnimationFrame(() => {
+          carouselUpdateFrame = null;
+          updateCarouselIndicators();
+        });
+      }, { passive: true });
+
+      carouselIndicators.forEach(indicator => {
+        indicator.addEventListener("click", () => {
+          const card = modeCards[Number(indicator.dataset.carouselIndex)];
+          if (!card) return;
+          const gridRect = modeGrid.getBoundingClientRect();
+          const inset = parseFloat(getComputedStyle(modeGrid).scrollPaddingLeft) || 0;
+          const left = modeGrid.scrollLeft + card.getBoundingClientRect().left - gridRect.left - inset;
+          modeGrid.scrollTo({ left, behavior: "smooth" });
+        });
+      });
+
+      window.addEventListener("resize", updateCarouselIndicators);
+      updateCarouselIndicators();
 
       document.querySelectorAll("[data-mode]").forEach(button => {
         button.addEventListener("click", () => {

@@ -45,7 +45,7 @@ root and start a simple server:
 
 ```bash
 git clone <repository-url>
-cd nailthenote
+cd <repo-directory>
 # add C2.wav … C7.wav here
 python3 -m http.server 8000
 # then open http://localhost:8000
@@ -78,7 +78,7 @@ The detected engine is also announced in the browser console on load, e.g.
 ## Project structure
 
 ```
-nailthenote/
+repo root/
 ├── index.html   # Home and game screen structure
 ├── styles.css   # Styling, layout, and animations
 ├── script.js    # Game logic and sample playback (Web Audio API)

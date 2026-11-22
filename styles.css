@@ -254,9 +254,11 @@ h1, h2, p { margin-top: 0; }
   font-size: 14px;
 }
 
+.carousel-indicators { display: none; }
+
 .mode-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 13px;
 }
 
@@ -982,12 +984,41 @@ h1, h2, p { margin-top: 0; }
   .home-screen { justify-content: center; }
   .hero-title { font-size: clamp(40px, 11vw, 53px); }
   .hero-copy { max-width: 340px; font-size: 14px; line-height: 1.55; }
+  .carousel-indicators {
+    display: flex;
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+  .carousel-indicator {
+    flex: 1;
+    min-width: 0;
+    height: 12px;
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .carousel-indicator::before {
+    display: block;
+    height: 4px;
+    content: "";
+    background: var(--line);
+    border-radius: 999px;
+    transition: background-color .18s ease;
+  }
+  .carousel-indicator[aria-pressed="true"]::before { background: var(--green); }
+  .carousel-indicator:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+    border-radius: 999px;
+  }
   .mode-grid {
     display: flex;
     flex-direction: row;
     gap: 10px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
+    scroll-padding-inline: 14px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     margin-inline: -14px;
@@ -1061,14 +1092,15 @@ h1, h2, p { margin-top: 0; }
   .detect-screen { padding-top: 5px; }
   .detect-panel {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
     gap: 9px;
   }
-  .detect-side { padding: 16px 14px; border-radius: 16px; }
-  .detect-target { font-size: clamp(52px, 20vw, 84px); }
+  .detect-side { padding: 12px 14px; border-radius: 16px; }
+  .detect-target { font-size: clamp(48px, 16vw, 68px); }
   .detect-readout { font-size: clamp(40px, 16vw, 68px); }
-  .detect-kicker { margin-bottom: 8px; font-size: 12px; }
-  .detect-copy { margin: 10px 0 13px; font-size: 13px; }
+  .detect-kicker { margin-bottom: 6px; font-size: 12px; }
+  .detect-copy { margin: 6px 0 8px; font-size: 13px; }
+  .detect-mic-status { margin-top: 7px; }
   .detect-read-copy { margin-top: 10px; margin-bottom: 10px; }
   .detect-bar { width: min(200px, 78%); margin-bottom: 12px; }
   .detect-octaves { gap: 5px; }
