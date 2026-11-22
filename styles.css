@@ -250,6 +250,7 @@ h1, h2, p { margin-top: 0; }
 }
 
 .mode-heading span {
+  margin-left: auto;
   color: var(--muted-2);
   font-size: 14px;
 }
@@ -257,15 +258,18 @@ h1, h2, p { margin-top: 0; }
 .carousel-indicators { display: none; }
 
 .mode-grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 13px;
 }
 
 .mode-card {
   position: relative;
   min-width: 0;
-  min-height: 145px;
+  min-height: 0;
   padding: 18px 18px 16px;
   display: flex;
   flex-direction: column;
@@ -318,6 +322,7 @@ h1, h2, p { margin-top: 0; }
 }
 
 .home-footer {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -377,6 +382,31 @@ h1, h2, p { margin-top: 0; }
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.detect-mic-check-status {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--panel-pale);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.detect-mic-check-status.is-ready {
+  background: var(--correct-bg);
+  color: var(--correct-ink);
+}
+
+.detect-mic-check-status.is-error {
+  background: var(--wrong-bg);
+  color: var(--wrong-ink);
+}
+
+.detect-mic-check-button {
+  width: 100%;
+  margin-bottom: 12px;
 }
 
 .modal-field {
@@ -445,6 +475,11 @@ h1, h2, p { margin-top: 0; }
 .modal-start:hover, .modal-start:focus-visible {
   filter: brightness(1.08);
   outline: none;
+}
+
+.modal-start:disabled {
+  opacity: .55;
+  cursor: not-allowed;
 }
 
 .game-screen {
@@ -771,7 +806,27 @@ h1, h2, p { margin-top: 0; }
   box-shadow: var(--shadow);
 }
 
-.detect-target-side { background: var(--green-pale); }
+.detect-target-side {
+  position: relative;
+  background: var(--green-pale);
+}
+
+.detect-mic-indicator {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--green);
+  box-shadow: var(--card-shadow);
+}
+
+.detect-mic-indicator svg { width: 19px; height: 19px; }
 
 .detect-kicker {
   margin-bottom: 12px;
@@ -868,24 +923,6 @@ h1, h2, p { margin-top: 0; }
   transition: width .08s linear;
 }
 
-.detect-octaves {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-}
-
-.octave-chip {
-  padding: 4px 9px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .04em;
-}
-
 .detect-feedback {
   min-height: 37px;
   margin-top: 12px;
@@ -955,6 +992,7 @@ h1, h2, p { margin-top: 0; }
   .top-note { font-size: 14px; }
   .home-screen { padding-block: 10px 0; }
   .hero-copy { margin: 12px 0 23px; }
+  .mode-heading span { margin-left: 0; }
   .mode-grid { gap: 8px; }
   .mode-card { min-height: 129px; padding: 14px 12px; }
   .mode-number { font-size: 12px; margin-bottom: 10px; }
@@ -1096,24 +1134,29 @@ h1, h2, p { margin-top: 0; }
     gap: 9px;
   }
   .detect-side { padding: 12px 14px; border-radius: 16px; }
+  .detect-mic-indicator { top: 12px; left: 12px; width: 34px; height: 34px; }
   .detect-target { font-size: clamp(48px, 16vw, 68px); }
   .detect-readout { font-size: clamp(40px, 16vw, 68px); }
-  .detect-kicker { margin-bottom: 6px; font-size: 12px; }
+  .detect-kicker { margin: 6px 0; font-size: 12px; }
   .detect-copy { margin: 6px 0 8px; font-size: 13px; }
   .detect-mic-status { margin-top: 7px; }
   .detect-read-copy { margin-top: 10px; margin-bottom: 10px; }
   .detect-bar { width: min(200px, 78%); margin-bottom: 12px; }
-  .detect-octaves { gap: 5px; }
-  .octave-chip { font-size: 11px; padding: 3px 8px; }
   .detect-feedback { min-height: 29px; margin-top: 8px; font-size: 14px; }
 }
 
-@media (max-height: 650px) and (min-width: 461px) {
+@media (max-height: 700px) and (min-width: 461px) {
   .app { padding-block: 12px; }
   .home-screen { padding-block: 8px 0; }
-  .hero-copy { margin: 10px 0 17px; }
-  .mode-card { min-height: 120px; }
-  .home-footer { margin-top: 12px; }
+  .eyebrow { margin-bottom: 8px; }
+  .hero-title { font-size: clamp(40px, 5.2vw, 64px); }
+  .hero-copy { margin: 8px 0 14px; line-height: 1.45; }
+  .mode-heading { margin-bottom: 8px; }
+  .mode-card { min-height: 0; padding: 12px 14px; }
+  .mode-number { margin-bottom: 6px; font-size: 12px; }
+  .mode-name { margin-bottom: 3px; font-size: clamp(17px, 2vw, 20px); }
+  .mode-description { font-size: 13px; line-height: 1.3; }
+  .home-footer { margin-top: 10px; }
   .game-screen { padding-top: 5px; }
   .game-top { margin-bottom: 8px; }
   .stats { margin-bottom: 9px; }

@@ -29,7 +29,7 @@ Nail The Pitch is a small web app for training your **absolute pitch**, one note
 | HTML5 | Page structure |
 | CSS3 | Styling and responsive layout |
 | JavaScript (vanilla) | Game logic and piano sample playback |
-| Web Audio API | Sample playback and pitch shifting (MIDI 36–95) |
+| Web Audio API | Sample playback and pitch shifting (MIDI 36-95) |
 
 ## Installation
 
@@ -82,7 +82,7 @@ repo root/
 ├── index.html   # Home and game screen structure
 ├── styles.css   # Styling, layout, and animations
 ├── script.js    # Game logic and sample playback (Web Audio API)
-├── C2.wav–C7.wav # Piano samples (provided separately)
+├── C2.wav-C7.wav # Piano samples (provided separately)
 ├── favicon.png   # Site favicon
 ├── LICENSE.md   # LGPL-3.0 license text
 ├── README.md    # Project documentation
@@ -97,7 +97,7 @@ The app serves two playback paths and picks one automatically:
   first playback. For each target MIDI pitch, the closest C-note sample is
   chosen and its `AudioBufferSourceNode` playback rate set to the matching
   semitone interval. This preserves the recorded attack and decay while
-  covering C2–B6 without a sample for every key.
+  covering C2-B6 without a sample for every key.
 - **Direct from disk (file://):** `fetch` of local files is blocked, so the app
   falls back to a built-in synthesizer that builds each note from a fundamental
   plus harmonics with an amplitude envelope.

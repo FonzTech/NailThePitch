@@ -91,17 +91,19 @@
       const detectTarget = document.querySelector("#detect-target");
       const detectCopy = document.querySelector("#detect-copy");
       const detectMicBtn = document.querySelector("#detect-mic-btn");
+      const detectMicIndicator = document.querySelector("#detect-mic-indicator");
       const detectMicStatus = document.querySelector("#detect-mic-status");
       const detectReadout = document.querySelector("#detect-readout");
       const detectReadCopy = document.querySelector("#detect-read-copy");
       const detectBarFill = document.querySelector("#detect-bar-fill");
-      const detectOctaves = document.querySelector("#detect-octaves");
       const detectFeedback = document.querySelector("#detect-feedback");
       const detectTimer = document.querySelector("#detect-timer");
       const detectCorrectCount = document.querySelector("#detect-correct-count");
       const detectIncorrectCount = document.querySelector("#detect-incorrect-count");
       const detectQuestionCount = document.querySelector("#detect-question-count");
       const detectModal = document.querySelector("#detect-modal");
+      const detectMicCheckStatus = document.querySelector("#detect-mic-check-status");
+      const detectMicCheckBtn = document.querySelector("#detect-mic-check");
       const detectOctaveCheckboxes = document.querySelector("#detect-octave-checkboxes");
       const detectStart = document.querySelector("#detect-start");
 
@@ -124,6 +126,7 @@
         stableCount: 0,
         locked: false
       };
+      let detectMicCheckAttempt = 0;
       // Detectable note range: E2 (MIDI 40) to E5 (MIDI 76).
       const DETECT_LOW_MIDI = 40;
       const DETECT_HIGH_MIDI = 76;
@@ -188,7 +191,7 @@
         questionTitle.textContent = modes[mode].title;
         if (mode === "note") {
           const bounds = octaveHzBounds(activeOctave);
-          questionCopy.textContent = `Recognize the note inside octave ${activeOctave} (${bounds.start}–${bounds.end} Hz).`;
+          questionCopy.textContent = `Recognize the note inside octave ${activeOctave} (${bounds.start}-${bounds.end} Hz).`;
         } else {
           questionCopy.textContent = modes[mode].copy;
         }
@@ -264,8 +267,8 @@
       }
 
       function makeQuestion() {
-        // "note" mode is constrained to the chosen octave (2–6): C at MIDI
-        // 12*(octave+1) up to B at 12*(octave+2)-1. Other modes use C2–B6.
+        // "note" mode is constrained to the chosen octave (2-6): C at MIDI
+        // 12*(octave+1) up to B at 12*(octave+2)-1. Other modes use C2-B6.
         const lo = activeMode === "note" ? 12 * (activeOctave + 1) : 36;
         const hi = activeMode === "note" ? 12 * (activeOctave + 2) - 1 : 95;
         const note = pitchFromMidi(randomInt(lo, hi));
@@ -438,7 +441,7 @@
         } catch (error) {
           if (currentQuestion !== question || !activeMode) return;
           console.error("Failed to load piano samples:", error);
-          feedback.textContent = "Could not load the piano WAVs. Make sure C2.wav–C7.wav are in the project root.";
+          feedback.textContent = "Could not load the piano WAVs. Make sure C2.wav-C7.wav are in the project root.";
           feedback.className = "feedback is-wrong";
           return;
         }
@@ -502,7 +505,7 @@
         // Show each octave's frequency range in the dropdown options.
         [...octaveSelect.options].forEach(option => {
           const bounds = octaveHzBounds(Number(option.value));
-          option.textContent = `${option.value} (${bounds.start}–${bounds.end} Hz)`;
+          option.textContent = `${option.value} (${bounds.start}-${bounds.end} Hz)`;
         });
 
         // Adapt the modal to the chosen game. The full game always spans all
@@ -567,31 +570,93 @@
           input.value = String(oct);
           input.checked = true;
           const span = document.createElement("span");
-          span.textContent = `Octave ${oct}  ·  ${noteShortLabel(lo)}–${noteShortLabel(hi)}`;
+          span.textContent = `Octave ${oct}  ·  ${noteShortLabel(lo)}-${noteShortLabel(hi)}`;
           label.append(input, span);
           detectOctaveCheckboxes.append(label);
         });
         detectModal.removeAttribute("inert");
         detectModal.hidden = false;
-        detectModal.querySelector(".modal-dialog").focus();
+        detectMicCheckStatus.textContent = "Check microphone access before starting.";
+        detectMicCheckStatus.className = "detect-mic-check-status";
+        detectMicCheckBtn.hidden = false;
+        detectMicCheckBtn.disabled = false;
+        detectStart.disabled = true;
+        detectMicCheckBtn.focus();
       }
 
-      function closeDetectModal() {
+      function closeDetectModal(stopStream = true) {
+        detectMicCheckAttempt++;
         detectModal.hidden = true;
         detectModal.setAttribute("inert", "");
+        if (stopStream && detect.stream) {
+          detect.stream.getTracks().forEach(track => track.stop());
+          detect.stream = null;
+        }
       }
 
       function beginDetect() {
+        const microphoneReady = detect.stream &&
+          detect.stream.getAudioTracks().some(track => track.readyState === "live");
+        if (!microphoneReady) {
+          detectMicCheckStatus.className = "detect-mic-check-status is-error";
+          detectMicCheckStatus.textContent = "Microphone access is no longer active. Check it again to start.";
+          detectMicCheckBtn.hidden = false;
+          detectMicCheckBtn.disabled = false;
+          detectStart.disabled = true;
+          detectMicCheckBtn.focus();
+          return;
+        }
+
         const checked = [...detectOctaveCheckboxes.querySelectorAll("input[type=checkbox]:checked")]
           .map(input => Number(input.value));
-        closeDetectModal();
+        closeDetectModal(false);
         detect.octaves = checked.length ? checked : [2, 3, 4, 5];
         startDetectSession();
+        enableDetectMic();
+      }
+
+      async function checkDetectMicrophone() {
+        const attempt = ++detectMicCheckAttempt;
+        detectMicCheckBtn.disabled = true;
+        detectMicCheckStatus.className = "detect-mic-check-status";
+        detectMicCheckStatus.textContent = "Requesting microphone access…";
+
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Microphone access requires HTTPS or localhost.");
+          }
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          if (attempt !== detectMicCheckAttempt) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+          }
+          if (!stream.getAudioTracks().some(track => track.readyState === "live")) {
+            stream.getTracks().forEach(track => track.stop());
+            throw new Error("No active microphone track was found.");
+          }
+          detect.stream = stream;
+          detectMicCheckStatus.classList.add("is-ready");
+          detectMicCheckStatus.textContent = "✓ Microphone is ready. Start when you are ready.";
+          detectMicCheckBtn.hidden = true;
+          detectStart.disabled = false;
+          detectStart.focus();
+        } catch (error) {
+          if (attempt !== detectMicCheckAttempt) return;
+          console.error("Microphone check failed:", error);
+          detectMicCheckStatus.classList.add("is-error");
+          detectMicCheckStatus.textContent = error.message || "Microphone access was denied or unavailable.";
+          detectMicCheckBtn.disabled = false;
+          detectMicCheckBtn.focus();
+        }
       }
 
       function startDetectSession() {
         activeMode = "detect";
         detect.active = true;
+        detectMicBtn.hidden = false;
+        detectMicBtn.disabled = false;
+        detectMicBtn.textContent = "Enable microphone";
+        detectMicIndicator.hidden = true;
         detect.correctCount = 0;
         detect.incorrectCount = 0;
         detect.questions = 0;
@@ -606,7 +671,6 @@
         detectIncorrectCount.textContent = "0";
         detectQuestionCount.textContent = "0";
         detectModeName.textContent = modes.detect.name;
-        renderDetectOctaves();
 
         homeScreen.hidden = true;
         detectScreen.hidden = false;
@@ -621,14 +685,25 @@
         generateDetectTarget();
       }
 
-      function renderDetectOctaves() {
-        detectOctaves.replaceChildren();
-        detect.octaves.forEach(oct => {
-          const chip = document.createElement("span");
-          chip.className = "octave-chip";
-          chip.textContent = `Oct ${oct}`;
-          detectOctaves.append(chip);
-        });
+      function selectedOctaveDescription() {
+        const octaves = [...new Set(detect.octaves)].sort((a, b) => a - b);
+        const ranges = [];
+        let start = octaves[0];
+        let end = start;
+
+        for (const octave of octaves.slice(1)) {
+          if (octave === end + 1) {
+            end = octave;
+          } else {
+            ranges.push(start === end ? `octave ${start}` : `octaves ${start}-${end}`);
+            start = end = octave;
+          }
+        }
+
+        if (start !== undefined) {
+          ranges.push(start === end ? `octave ${start}` : `octaves ${start}-${end}`);
+        }
+        return ranges.join(" and ");
       }
 
       function generateDetectTarget() {
@@ -662,7 +737,7 @@
         detectQuestionCount.textContent = String(detect.questions);
 
         setMicStatus(detect.micEnabled
-          ? "Listening… pluck the target note."
+          ? `Listening… pluck the target note within ${selectedOctaveDescription()}.`
           : "Enable the microphone to play.");
       }
 
@@ -679,7 +754,7 @@
           return;
         }
         try {
-          detect.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          detect.stream = detect.stream || await navigator.mediaDevices.getUserMedia({ audio: true });
           const Ctor = window.AudioContext || window.webkitAudioContext;
           detect.audioContext = new Ctor();
           const source = detect.audioContext.createMediaStreamSource(detect.stream);
@@ -689,9 +764,9 @@
           source.connect(analyser);
           detect.analyser = analyser;
           detect.micEnabled = true;
-          detectMicBtn.textContent = "Microphone on";
-          detectMicBtn.disabled = true;
-          setMicStatus("Listening… pluck the target note.");
+          detectMicBtn.hidden = true;
+          detectMicIndicator.hidden = false;
+          setMicStatus(`Listening… pluck the target note within ${selectedOctaveDescription()}.`);
           const tick = () => {
             if (!detect.active) return;
             if (detect.micEnabled && detect.analyser) detectPitchTick();
@@ -846,6 +921,8 @@
 
         detectMicBtn.textContent = "Enable microphone";
         detectMicBtn.disabled = false;
+        detectMicBtn.hidden = false;
+        detectMicIndicator.hidden = true;
 
         detectScreen.hidden = true;
         homeScreen.hidden = false;
@@ -858,6 +935,7 @@
       detectModal.querySelectorAll("[data-detect-close]").forEach(el => {
         el.addEventListener("click", closeDetectModal);
       });
+      detectMicCheckBtn.addEventListener("click", checkDetectMicrophone);
       document.addEventListener("keydown", event => {
         if (event.key === "Escape" && !detectModal.hidden) closeDetectModal();
       });
