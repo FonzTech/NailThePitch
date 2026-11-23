@@ -89,6 +89,16 @@ repo root/
 └── .gitignore
 ```
 
+## Pitch detection tests
+
+The automated guitar pitch-detection tests use pluck recordings from the
+[Guitar Notes Dataset on Kaggle](https://www.kaggle.com/datasets/mohammedalkooheji/guitar-notes-dataset).
+The dataset is licensed under
+[Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/).
+The fixture filenames were adapted to simple note names with octave numbers,
+such as `D2.wav` and `Fsharp4.wav`, for test discovery and expected-pitch
+matching. Run the tests with `node --test`.
+
 ## How the sound works
 
 The app serves two playback paths and picks one automatically:
