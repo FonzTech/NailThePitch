@@ -1036,7 +1036,7 @@
           return;
         }
         detectReadoutNote.textContent = noteShortLabel(midiFromFrequency(freq));
-        detectReadoutFrequency.textContent = `${freq.toFixed(1)} Hz`;
+        detectReadoutFrequency.textContent = `${Math.round(freq)} Hz`;
         const minFreq = frequencyForMidi(detect.rangeLowMidi);
         const maxFreq = frequencyForMidi(detect.rangeHighMidi);
         const norm = Math.max(0, Math.min(1, (freq - minFreq) / (maxFreq - minFreq)));
