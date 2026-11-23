@@ -126,10 +126,6 @@
         audioContext: null,
         analyser: null,
         inputBuffer: null,
-        pitchBuffer: null,
-        correlationBuffer: null,
-        pitchSampleRate: 0,
-        downsampleFactor: 1,
         rafId: null,
         lastPitchCheckAt: 0,
         micEnabled: false,
@@ -148,9 +144,6 @@
       const DETECT_PITCH_CONFIRMATION_MS = 500;
       const DETECT_MAX_SAMPLE_GAP_MS = 250;
       const DETECT_PITCH_SMOOTHING = 0.15;
-      const DETECT_AUTOCORRELATION_THRESHOLD = 0.8;
-      const DETECT_AUTOCORRELATION_PEAK_MARGIN = 0.02;
-      const DETECT_SUBHARMONIC_CHECK_MIN_LAG = 12;
       const detectRangePresets = [
         { group: "Keyboards", value: "keys-108", label: "108 Keys (Custom Stuart & Sons) - C0 - B8, 9 Octaves", low: 12, high: 119 },
         { group: "Keyboards", value: "keys-97", label: "97 Keys (Bösendorfer Imperial) - C0 - C8, 8 Octaves", low: 12, high: 108 },
@@ -915,13 +908,7 @@
           analyser.smoothingTimeConstant = 0.3;
           source.connect(analyser);
           detect.analyser = analyser;
-          detect.downsampleFactor = detect.audioContext.sampleRate >= 40000
-            ? Math.ceil(detect.audioContext.sampleRate / 24000)
-            : 1;
           detect.inputBuffer = new Float32Array(analyser.fftSize);
-          detect.pitchBuffer = new Float32Array(analyser.fftSize / detect.downsampleFactor);
-          detect.correlationBuffer = new Float32Array(detect.pitchBuffer.length);
-          detect.pitchSampleRate = detect.audioContext.sampleRate / detect.downsampleFactor;
           detect.lastPitchCheckAt = 0;
           detect.micEnabled = true;
           detectMicBtn.hidden = true;
@@ -943,102 +930,11 @@
 
       // Estimate the fundamental frequency (Hz) using autocorrelation. Returns null when the signal is too weak.
       function detectPitchFrequency() {
-        const input = detect.inputBuffer;
-        const timeData = detect.pitchBuffer;
-        detect.analyser.getFloatTimeDomainData(input);
-        if (detect.downsampleFactor > 1) {
-          for (let i = 0; i < timeData.length; i++) {
-            let sum = 0;
-            const start = i * detect.downsampleFactor;
-            for (let sample = 0; sample < detect.downsampleFactor; sample++) {
-              sum += input[start + sample];
-            }
-            timeData[i] = sum / detect.downsampleFactor;
-          }
-        } else {
-          timeData.set(input);
-        }
-        const buflen = timeData.length;
-
-        let sumSq = 0;
-        for (let i = 0; i < buflen; i++) sumSq += timeData[i] * timeData[i];
-        const rms = Math.sqrt(sumSq / buflen);
-        if (rms < 0.008) return null;
-
-        const sampleRate = detect.pitchSampleRate;
-        const minFreq = frequencyForMidi(Math.max(0, detect.rangeLowMidi - 1));
-        const maxFreq = frequencyForMidi(detect.rangeHighMidi + 1);
-        const maxLag = Math.min(Math.ceil(sampleRate / minFreq), buflen - 1);
-        const minLag = Math.max(2, Math.floor(sampleRate / maxFreq));
-
-        const nsdf = detect.correlationBuffer;
-        let offset = 0;
-        for (let lag = minLag; lag <= maxLag; lag++) {
-          let crossCorrelation = 0;
-          let signalEnergy = 0;
-          for (let i = 0; i + lag < buflen; i++) {
-            const current = timeData[i];
-            const shifted = timeData[i + lag];
-            crossCorrelation += current * shifted;
-            signalEnergy += current * current + shifted * shifted;
-          }
-          nsdf[offset++] = signalEnergy === 0 ? 0 : (2 * crossCorrelation) / signalEnergy;
-        }
-
-        let strongestPeak = -1;
-        let strongestPeakIdx = -1;
-        let firstStrongPeakIdx = -1;
-        for (let i = 1; i < offset - 1; i++) {
-          if (nsdf[i] > nsdf[i - 1] && nsdf[i] >= nsdf[i + 1] && nsdf[i] > 0) {
-            if (firstStrongPeakIdx < 0 && nsdf[i] >= DETECT_AUTOCORRELATION_THRESHOLD) {
-              firstStrongPeakIdx = i;
-            }
-            if (nsdf[i] > strongestPeak) {
-              strongestPeak = nsdf[i];
-              strongestPeakIdx = i;
-            }
-          }
-        }
-        if (strongestPeakIdx < 0) return null;
-        let peakIdx = firstStrongPeakIdx >= 0 ? firstStrongPeakIdx : strongestPeakIdx;
-        // Prefer a clearly stronger full-period peak over its harmonic's half-period peak.
-        while (minLag + peakIdx >= DETECT_SUBHARMONIC_CHECK_MIN_LAG) {
-          const currentLag = minLag + peakIdx;
-          const doubledLag = currentLag * 2;
-          const lowerBound = Math.max(1, Math.floor(doubledLag * 0.88) - minLag);
-          const upperBound = Math.min(offset - 2, Math.ceil(doubledLag * 1.12) - minLag);
-          let lowerPeakIdx = -1;
-          for (let i = lowerBound; i <= upperBound; i++) {
-            const isPeak = nsdf[i] > nsdf[i - 1] && nsdf[i] >= nsdf[i + 1];
-            if (isPeak && (lowerPeakIdx < 0 || nsdf[i] > nsdf[lowerPeakIdx])) {
-              lowerPeakIdx = i;
-            }
-          }
-          if (lowerPeakIdx < 0 ||
-              nsdf[lowerPeakIdx] - nsdf[peakIdx] <= DETECT_AUTOCORRELATION_PEAK_MARGIN) {
-            break;
-          }
-          peakIdx = lowerPeakIdx;
-        }
-        const left = nsdf[peakIdx - 1];
-        const center = nsdf[peakIdx];
-        const right = nsdf[peakIdx + 1];
-        const denominator = left - 2 * center + right;
-        let interpolationOffset = denominator === 0
-          ? 0
-          : Math.max(-0.5, Math.min(0.5, 0.5 * (left - right) / denominator));
-        if (minLag + peakIdx < 8 && center > 0) {
-          const cosine = Math.max(-1, Math.min(1, (left + right) / (2 * center)));
-          const angularFrequency = Math.acos(cosine);
-          const sine = Math.sin(angularFrequency);
-          if (angularFrequency > 0 && sine > 0) {
-            const cosineOffset = Math.atan2(right - left, 2 * center * sine) / angularFrequency;
-            if (Number.isFinite(cosineOffset) && Math.abs(cosineOffset) <= 0.5) {
-              interpolationOffset = cosineOffset;
-            }
-          }
-        }
-        return sampleRate / (minLag + peakIdx + interpolationOffset);
+        detect.analyser.getFloatTimeDomainData(detect.inputBuffer);
+        return getPitch(detect.inputBuffer, detect.audioContext.sampleRate, {
+          minFrequency: frequencyForMidi(Math.max(0, detect.rangeLowMidi - 1)),
+          maxFrequency: frequencyForMidi(detect.rangeHighMidi + 1)
+        });
       }
 
       function midiValueFromFrequency(freq) {
@@ -1174,8 +1070,6 @@
         detect.timerInterval = null;
         detect.analyser = null;
         detect.inputBuffer = null;
-        detect.pitchBuffer = null;
-        detect.correlationBuffer = null;
         detect.micEnabled = false;
         detect.locked = false;
         detect.target = null;
