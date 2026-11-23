@@ -136,6 +136,58 @@
     return effectiveSampleRate / (minLag + peakIdx + interpolationOffset);
   }
 
+  function createPitchTracker(confirmFrames = 4) {
+    if (!Number.isInteger(confirmFrames) || confirmFrames < 1) {
+      throw new RangeError("confirmFrames must be a positive integer.");
+    }
+
+    let currentMidi = null;
+    let currentFrequency = null;
+    let candidateMidi = null;
+    let candidateCount = 0;
+
+    function reset() {
+      currentMidi = null;
+      currentFrequency = null;
+      candidateMidi = null;
+      candidateCount = 0;
+    }
+
+    function track(audioChunk, sampleRate, options) {
+      const measuredFrequency = getPitch(audioChunk, sampleRate, options);
+      if (measuredFrequency === null) {
+        reset();
+        return null;
+      }
+
+      const midi = Math.round(69 + 12 * Math.log2(measuredFrequency / 440));
+      if (midi !== currentMidi) {
+        if (midi === candidateMidi) {
+          candidateCount++;
+        } else {
+          candidateMidi = midi;
+          candidateCount = 1;
+        }
+        if (candidateCount >= confirmFrames) {
+          currentMidi = midi;
+          currentFrequency = measuredFrequency;
+          candidateMidi = null;
+          candidateCount = 0;
+        }
+        return currentFrequency;
+      }
+
+      candidateMidi = null;
+      candidateCount = 0;
+      currentFrequency += 0.2 * (measuredFrequency - currentFrequency);
+      return currentFrequency;
+    }
+
+    return { getPitch: track, reset };
+  }
+
+  getPitch.createPitchTracker = createPitchTracker;
+
   if (typeof module === "object" && module.exports) {
     module.exports = getPitch;
   } else {
