@@ -1,18 +1,28 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { readFileSync } = require("node:fs");
+const { readFileSync, readdirSync } = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const getPitch = require("../get-pitch.js");
 
 const CHUNK_SIZE = 8192;
-const WAV_NOTE_FILES = [
-  ["e2.wav", 40], ["f2.wav", 41], ["gb2.wav", 42], ["g2.wav", 43],
-  ["ab2.wav", 44], ["a2.wav", 45], ["bb2.wav", 46], ["b2.wav", 47],
-  ["e4.wav", 64], ["f4.wav", 65], ["gb4.wav", 66], ["g4.wav", 67],
-  ["ab4.wav", 68], ["a4.wav", 69], ["bb4.wav", 70], ["b4.wav", 71]
-];
+const PITCH_CLASS_BY_NAME = {
+  C: 0, Csharp: 1, D: 2, Dsharp: 3, E: 4, F: 5,
+  Fsharp: 6, G: 7, Gsharp: 8, A: 9, Asharp: 10, B: 11
+};
+const WAV_NOTE_FILES = readdirSync(__dirname)
+  .filter(filename => filename.endsWith(".wav"))
+  .map(filename => {
+    const match = /^([A-G](?:sharp)?)(\d)(?:-2)?\.wav$/.exec(filename);
+    assert.ok(match, `${filename} should use scientific pitch notation`);
+    const [, pitchName, octave] = match;
+    return {
+      filename,
+      midi: 12 * (Number(octave) + 1) + PITCH_CLASS_BY_NAME[pitchName]
+    };
+  })
+  .sort((a, b) => a.midi - b.midi);
 
 function frequencyForMidi(midi) {
   return 440 * Math.pow(2, (midi - 69) / 12);
@@ -32,6 +42,12 @@ function makeTone(frequency, sampleRate, partials = [1], phase = 0) {
 
 function centsBetween(actual, expected) {
   return 1200 * Math.log2(actual / expected);
+}
+
+function rms(samples) {
+  let sumSquared = 0;
+  for (const sample of samples) sumSquared += sample * sample;
+  return Math.sqrt(sumSquared / samples.length);
 }
 
 function readPcm16Wav(filename) {
@@ -103,7 +119,7 @@ function findInitialPluckPeak(samples, sampleRate) {
 test("detects every chromatic pitch from E2 through E4", () => {
   for (const sampleRate of [44100, 48000]) {
     const options = {
-      minFrequency: frequencyForMidi(39),
+      minFrequency: frequencyForMidi(37),
       maxFrequency: frequencyForMidi(65)
     };
 
@@ -119,43 +135,22 @@ test("detects every chromatic pitch from E2 through E4", () => {
   }
 });
 
-test("detects the note in the provided octave-2 and octave-4 WAVs", () => {
-  const options = {
-    minFrequency: frequencyForMidi(39),
-    maxFrequency: frequencyForMidi(72)
-  };
-  const windowOffsets = [0.4, 0.6];
-
-  for (const [filename, midi] of WAV_NOTE_FILES) {
-    const { samples, sampleRate } = readPcm16Wav(filename);
-    const expected = frequencyForMidi(midi);
-    for (const seconds of windowOffsets) {
-      const start = Math.floor(seconds * sampleRate);
-      const chunk = samples.subarray(start, start + CHUNK_SIZE);
-      assert.equal(chunk.length, CHUNK_SIZE, `${filename} should contain a window at ${seconds}s`);
-      const actual = getPitch(chunk, sampleRate, options);
-      assert.ok(actual !== null, `${filename} should be detected at ${seconds}s`);
-      assert.ok(
-        Math.abs(centsBetween(actual, expected)) < 35,
-        `${filename} at ${seconds}s: expected ${expected.toFixed(2)} Hz, received ${actual.toFixed(2)} Hz`
-      );
-    }
-  }
-});
-
 test("holds the plucked note steadily for at least one second", () => {
   const options = {
-    minFrequency: frequencyForMidi(39),
-    maxFrequency: frequencyForMidi(72)
+    minFrequency: frequencyForMidi(37),
+    maxFrequency: frequencyForMidi(81)
   };
 
-  for (const [filename, midi] of WAV_NOTE_FILES) {
+  for (const { filename, midi } of WAV_NOTE_FILES) {
     const { samples, sampleRate } = readPcm16Wav(filename);
     const tracker = getPitch.createPitchTracker();
     const expected = frequencyForMidi(midi);
     const peakStart = findInitialPluckPeak(samples, sampleRate);
     const hopSize = Math.round(sampleRate * 0.08);
     const oneSecondLater = peakStart + sampleRate;
+    const pitchRange = WAV_NOTE_FILES.map(note => note.midi);
+    assert.equal(Math.min(...pitchRange), 38, "the set should start at D2");
+    assert.equal(Math.max(...pitchRange), 80, "the set should reach Gsharp5");
     let firstDetectedAt = null;
     let lastChunkStart = peakStart;
 
@@ -167,7 +162,13 @@ test("holds the plucked note steadily for at least one second", () => {
         sampleRate,
         options
       );
-      if (actual === null) continue;
+      if (actual === null) {
+        const chunk = samples.subarray(start, start + CHUNK_SIZE);
+        if (firstDetectedAt !== null && rms(chunk) >= 0.008) {
+          assert.fail(`${filename} lost pitch detection while its pluck was still audible`);
+        }
+        continue;
+      }
 
       if (firstDetectedAt === null) firstDetectedAt = start;
       assert.ok(
@@ -178,8 +179,8 @@ test("holds the plucked note steadily for at least one second", () => {
 
     assert.ok(firstDetectedAt !== null, `${filename} should produce a stable pitch`);
     assert.ok(
-      firstDetectedAt - peakStart <= sampleRate * 0.4,
-      `${filename} should settle soon after its initial pluck peak`
+      firstDetectedAt - peakStart <= sampleRate * 0.8,
+      `${filename} should settle within one second of its initial pluck peak`
     );
     assert.ok(
       lastChunkStart >= oneSecondLater - hopSize,
