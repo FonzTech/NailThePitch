@@ -6,20 +6,20 @@ Try it online: **[https://fonztech.github.io/NailThePitch/](https://fonztech.git
 
 ## Know the note. Own the sound.
 
-Nail The Pitch is a small web app for training your **absolute pitch**, one note at a time. Listen closely, trust your instinct, and watch your ear get sharper — no scores to chase, just progress to make.
+Nail The Pitch is a small web app for training your **absolute pitch**, one note at a time. Listen closely, trust your instinct, and watch your ear get sharper - no scores to chase, just progress to make.
 
 ## Features
 
 - **3 progressive training levels:**
-  1. **Find the octave** — hear the pitch and pinpoint its place.
-  2. **Name the note** — recognize the note, whatever the octave.
-  3. **Note & octave** — the full picture: identify note and octave in one go.
+  1. **Find the octave** - hear the pitch and pinpoint its place.
+  2. **Name the note** - recognize the note, whatever the octave.
+  3. **Note & octave** - the full picture: identify note and octave in one go.
 
 - **Recorded piano samples** played and pitch-shifted with the Web Audio API.
-- **Live session statistics** — time, correct answers, incorrect answers, and question count.
+- **Live session statistics** - time, correct answers, incorrect answers, and question count.
 - **Instant feedback** with random distractors for every question.
 - **Responsive, accessible interface** (ARIA, keyboard navigation).
-- **Switchable dark theme** — toggle button on the game selector screen.
+- **Switchable dark theme** - toggle button on the game selector screen.
 - **Zero dependencies**: just HTML, CSS, and vanilla JavaScript.
 
 ## Stack
@@ -37,7 +37,7 @@ No build step or packages required. Over a real web server the app plays
 recorded piano WAVs; opened directly from disk it automatically falls back to a
 built-in synthesized tone. The two paths are described below.
 
-### Option A — over a web server (recorded piano samples)
+### Option A - over a web server (recorded piano samples)
 
 The browser must be able to fetch the WAV files, which requires serving the
 folder (plain `file://` won't work). Add the six mono samples to the project
@@ -55,7 +55,7 @@ The required samples are `C2.wav`, `C3.wav`, `C4.wav`, `C5.wav`, `C6.wav`, and
 `C7.wav`, recorded from the same piano. C7 provides a nearby anchor for the
 game's highest notes (up to B6).
 
-### Option B — direct from disk (no server)
+### Option B - direct from disk (no server)
 
 Just open `index.html` in a browser. Because WAV fetching is blocked under
 `file://`, the app detects this and uses a built-in Web Audio synthesizer
@@ -102,7 +102,7 @@ The app serves two playback paths and picks one automatically:
   falls back to a built-in synthesizer that builds each note from a fundamental
   plus harmonics with an amplitude envelope.
 
-The check is `location.protocol` — a real server means samples, otherwise synth.
+The check is `location.protocol` - a real server means samples, otherwise synth.
 The choice is logged to the browser console on startup.
 
 ## License

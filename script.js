@@ -102,6 +102,8 @@
       const detectIncorrectCount = document.querySelector("#detect-incorrect-count");
       const detectQuestionCount = document.querySelector("#detect-question-count");
       const detectModal = document.querySelector("#detect-modal");
+      const detectRangeSelect = document.querySelector("#detect-range-select");
+      const detectOctaveFields = document.querySelector("#detect-octave-fields");
       const detectMicCheckStatus = document.querySelector("#detect-mic-check-status");
       const detectMicCheckBtn = document.querySelector("#detect-mic-check");
       const detectOctaveCheckboxes = document.querySelector("#detect-octave-checkboxes");
@@ -120,8 +122,17 @@
         stream: null,
         audioContext: null,
         analyser: null,
+        inputBuffer: null,
+        pitchBuffer: null,
+        correlationBuffer: null,
+        pitchSampleRate: 0,
+        downsampleFactor: 1,
         rafId: null,
+        lastPitchCheckAt: 0,
         micEnabled: false,
+        rangeLowMidi: 40,
+        rangeHighMidi: 76,
+        rangeDescription: "E2-E5",
         stableMidi: null,
         stableSince: null,
         stableLastSeenAt: null,
@@ -129,13 +140,43 @@
         locked: false
       };
       let detectMicCheckAttempt = 0;
-      // Detectable note range: E2 (MIDI 40) to E5 (MIDI 76).
-      const DETECT_LOW_MIDI = 40;
-      const DETECT_HIGH_MIDI = 76;
+      const DETECT_LOW_MIDI = 12;  // C0
+      const DETECT_HIGH_MIDI = 119; // B8
       const DETECT_PITCH_CONFIRMATION_MS = 500;
       const DETECT_MAX_SAMPLE_GAP_MS = 250;
       const DETECT_PITCH_SMOOTHING = 0.25;
       const DETECT_AUTOCORRELATION_THRESHOLD = 0.8;
+      const detectRangePresets = [
+        { group: "Keyboards", value: "keys-108", label: "108 Keys (Custom Stuart & Sons) - C0 - B8, 9 Octaves", low: 12, high: 119 },
+        { group: "Keyboards", value: "keys-97", label: "97 Keys (Bösendorfer Imperial) - C0 - C8, 8 Octaves", low: 12, high: 108 },
+        { group: "Keyboards", value: "keys-92", label: "92 Keys (Bösendorfer 225) - F0 - C8, 7⅔ Octaves", low: 17, high: 108 },
+        { group: "Keyboards", value: "keys-88", label: "88 Keys (Standard Concert Grand / Upright) - A0 - C8, 7¼ Octaves", low: 21, high: 108 },
+        { group: "Keyboards", value: "keys-85", label: "85 Keys (Historical Standard) - A0 - A7, 7 Octaves", low: 21, high: 105 },
+        { group: "Keyboards", value: "keys-76", label: "76 Keys (Stage Piano / Synthesizer) - E1 - G7, 6 Octaves", low: 28, high: 103 },
+        { group: "Keyboards", value: "keys-73", label: "73 Keys (Classic Electric Piano style) - E1 - E7, 6 Octaves", low: 28, high: 100 },
+        { group: "Keyboards", value: "keys-61", label: "61 Keys (Standard Portable Keyboard) - C2 - C7, 5 Octaves", low: 36, high: 96 },
+        { group: "Keyboards", value: "keys-49", label: "49 Keys (Compact MIDI Controller) - C2 - C6, 4 Octaves", low: 36, high: 84 },
+        { group: "Keyboards", value: "keys-37", label: "37 Keys (Mini Synth / Controller) - F2 - F5 (or C3 - C6), 3 Octaves", low: 41, high: 77 },
+        { group: "Keyboards", value: "keys-32", label: "32 Keys (Ultra-compact / Melodica) - F2 - C5, ~2½ Octaves", low: 41, high: 72 },
+        { group: "Keyboards", value: "keys-25", label: "25 Keys (Pocket / Travel Controller) - C3 - C5, 2 Octaves", low: 48, high: 72 },
+        { group: "Guitar (19 frets)", value: "guitar-e-standard", label: "E Standard - E2-B5", low: 40, high: 83 },
+        { group: "Guitar (19 frets)", value: "guitar-drop-d", label: "Drop D - D2-B5", low: 38, high: 83 },
+        { group: "Guitar (19 frets)", value: "guitar-d-standard", label: "D Standard - D2-A5", low: 38, high: 81 },
+        { group: "Guitar (19 frets)", value: "guitar-drop-c", label: "Drop C - C2-A5", low: 36, high: 81 },
+        { group: "4-string bass (19 frets)", value: "bass-4-e-standard", label: "E Standard - E1-D4", low: 28, high: 62 },
+        { group: "4-string bass (19 frets)", value: "bass-4-drop-d", label: "Drop D - D1-D4", low: 26, high: 62 },
+        { group: "4-string bass (19 frets)", value: "bass-4-d-standard", label: "D Standard - D1-C4", low: 26, high: 60 },
+        { group: "4-string bass (19 frets)", value: "bass-4-drop-c", label: "Drop C - C1-C4", low: 24, high: 60 },
+        { group: "5-string bass (19 frets)", value: "bass-5-e-standard", label: "E Standard - B0-D4", low: 23, high: 62 },
+        { group: "5-string bass (19 frets)", value: "bass-5-drop-d", label: "Drop D - B0-D4", low: 23, high: 62 },
+        { group: "5-string bass (19 frets)", value: "bass-5-d-standard", label: "D Standard - A0-C4", low: 21, high: 60 },
+        { group: "5-string bass (19 frets)", value: "bass-5-drop-c", label: "Drop C - G0-C4", low: 19, high: 60 },
+        { group: "6-string bass (19 frets)", value: "bass-6-e-standard", label: "E Standard - B0-G4", low: 23, high: 67 },
+        { group: "6-string bass (19 frets)", value: "bass-6-drop-d", label: "Drop D - B0-G4", low: 23, high: 67 },
+        { group: "6-string bass (19 frets)", value: "bass-6-d-standard", label: "D Standard - A0-F4", low: 21, high: 65 },
+        { group: "6-string bass (19 frets)", value: "bass-6-drop-c", label: "Drop C - G0-F4", low: 19, high: 65 },
+        { group: "Custom", value: "custom", label: "Custom - choose octaves", custom: true }
+      ];
 
       let activeMode = null;
       let openForMode = null;
@@ -565,21 +606,54 @@
         };
       }
 
+      function populateDetectRangeOptions() {
+        const previousValue = detectRangeSelect.value;
+        detectRangeSelect.replaceChildren();
+        let currentGroup = null;
+        let optionGroup = null;
+
+        detectRangePresets.forEach(preset => {
+          if (preset.group !== currentGroup) {
+            currentGroup = preset.group;
+            optionGroup = document.createElement("optgroup");
+            optionGroup.label = currentGroup;
+            detectRangeSelect.append(optionGroup);
+          }
+          const option = document.createElement("option");
+          option.value = preset.value;
+          option.textContent = preset.label;
+          optionGroup.append(option);
+        });
+        detectRangeSelect.value = detectRangePresets.some(preset => preset.value === previousValue)
+          ? previousValue
+          : "guitar-e-standard";
+      }
+
       function openDetectModal() {
+        const previousOctaves = new Set(
+          [...detectOctaveCheckboxes.querySelectorAll("input[type=checkbox]:checked")]
+            .map(input => Number(input.value))
+        );
+        populateDetectRangeOptions();
         detectOctaveCheckboxes.replaceChildren();
-        [2, 3, 4, 5].forEach(oct => {
+        Array.from({ length: 9 }, (_, octave) => octave).forEach(oct => {
           const { lo, hi } = detectRangeForOctave(oct);
           const label = document.createElement("label");
           label.className = "octave-check";
           const input = document.createElement("input");
           input.type = "checkbox";
           input.value = String(oct);
-          input.checked = true;
+          input.checked = previousOctaves.size ? previousOctaves.has(oct) : true;
           const span = document.createElement("span");
-          span.textContent = `Octave ${oct}  ·  ${noteShortLabel(lo)}-${noteShortLabel(hi)}`;
+          span.append(
+            document.createTextNode(`${noteShortLabel(lo)}-${noteShortLabel(hi)}`),
+            document.createElement("br"),
+            document.createTextNode(String(oct))
+          );
           label.append(input, span);
           detectOctaveCheckboxes.append(label);
         });
+        detectOctaveFields.hidden = detectRangeSelect.value !== "custom";
         detectModal.removeAttribute("inert");
         detectModal.hidden = false;
         detectMicCheckStatus.textContent = "Check microphone access before starting.";
@@ -589,6 +663,10 @@
         detectStart.disabled = true;
         detectMicCheckBtn.focus();
       }
+
+      detectRangeSelect.addEventListener("change", () => {
+        detectOctaveFields.hidden = detectRangeSelect.value !== "custom";
+      });
 
       function closeDetectModal(stopStream = true) {
         detectMicCheckAttempt++;
@@ -624,6 +702,23 @@
       }
 
       function beginDetect() {
+        const selectedPreset = detectRangePresets.find(preset => preset.value === detectRangeSelect.value);
+        if (!selectedPreset) {
+          detectMicCheckStatus.className = "detect-mic-check-status is-error";
+          detectMicCheckStatus.textContent = "Choose a valid instrument range.";
+          return;
+        }
+        const selectedOctaves = selectedPreset.custom
+          ? [...detectOctaveCheckboxes.querySelectorAll("input[type=checkbox]:checked")]
+            .map(input => Number(input.value))
+          : [];
+        if (selectedPreset.custom && selectedOctaves.length === 0) {
+          detectMicCheckStatus.className = "detect-mic-check-status is-error";
+          detectMicCheckStatus.textContent = "Select at least one octave.";
+          detectOctaveCheckboxes.querySelector("input").focus();
+          return;
+        }
+
         const microphoneReady = detect.stream &&
           detect.stream.getAudioTracks().some(track => track.readyState === "live");
         if (!microphoneReady) {
@@ -636,10 +731,19 @@
           return;
         }
 
-        const checked = [...detectOctaveCheckboxes.querySelectorAll("input[type=checkbox]:checked")]
-          .map(input => Number(input.value));
+        if (selectedPreset.custom) {
+          const ranges = selectedOctaves.map(detectRangeForOctave);
+          detect.octaves = selectedOctaves;
+          detect.rangeLowMidi = Math.min(...ranges.map(range => range.lo));
+          detect.rangeHighMidi = Math.max(...ranges.map(range => range.hi));
+          detect.rangeDescription = selectedOctaveDescription(selectedOctaves);
+        } else {
+          detect.octaves = [];
+          detect.rangeLowMidi = selectedPreset.low;
+          detect.rangeHighMidi = selectedPreset.high;
+          detect.rangeDescription = `${noteShortLabel(selectedPreset.low)}-${noteShortLabel(selectedPreset.high)}`;
+        }
         closeDetectModal(false);
-        detect.octaves = checked.length ? checked : [2, 3, 4, 5];
         startDetectSession();
         enableDetectMic();
       }
@@ -689,8 +793,8 @@
         detect.questions = 0;
         detect.locked = false;
         detect.lastHandledMidi = null;
-        detectTarget.textContent = "—";
-        detectReadout.textContent = "—";
+        detectTarget.textContent = "-";
+        detectReadout.textContent = "-";
         detectBarFill.style.width = "0%";
         detectFeedback.textContent = "";
         detectFeedback.className = "feedback detect-feedback";
@@ -712,8 +816,8 @@
         generateDetectTarget();
       }
 
-      function selectedOctaveDescription() {
-        const octaves = [...new Set(detect.octaves)].sort((a, b) => a - b);
+      function selectedOctaveDescription(octaveSelection = detect.octaves) {
+        const octaves = [...new Set(octaveSelection)].sort((a, b) => a - b);
         const ranges = [];
         let start = octaves[0];
         let end = start;
@@ -735,10 +839,16 @@
 
       function generateDetectTarget() {
         const candidates = [];
-        detect.octaves.forEach(oct => {
-          const { lo, hi } = detectRangeForOctave(oct);
-          for (let m = lo; m <= hi; m++) candidates.push(m);
-        });
+        if (detect.octaves.length) {
+          detect.octaves.forEach(oct => {
+            const { lo, hi } = detectRangeForOctave(oct);
+            for (let m = lo; m <= hi; m++) candidates.push(m);
+          });
+        } else {
+          for (let midi = detect.rangeLowMidi; midi <= detect.rangeHighMidi; midi++) {
+            candidates.push(midi);
+          }
+        }
         let pick = candidates[randomInt(0, candidates.length - 1)];
         if (candidates.length > 1 && detect.target) {
           let guard = 0;
@@ -756,7 +866,7 @@
 
         detectTarget.textContent = noteShortLabel(pick);
         detectTarget.classList.remove("hit");
-        detectReadout.textContent = "—";
+        detectReadout.textContent = "-";
         detectReadCopy.textContent = "Play the target note to lock it in.";
         detectBarFill.style.width = "0%";
         detectFeedback.textContent = "";
@@ -766,7 +876,7 @@
         detectQuestionCount.textContent = String(detect.questions);
 
         setMicStatus(detect.micEnabled
-          ? `Listening… pluck the target note within ${selectedOctaveDescription()}.`
+          ? `Listening… pluck the target note within ${detect.rangeDescription}.`
           : "Enable the microphone to play.");
       }
 
@@ -794,14 +904,22 @@
           detect.audioContext = new Ctor();
           const source = detect.audioContext.createMediaStreamSource(detect.stream);
           const analyser = detect.audioContext.createAnalyser();
-          analyser.fftSize = 2048;
+          analyser.fftSize = 8192;
           analyser.smoothingTimeConstant = 0.3;
           source.connect(analyser);
           detect.analyser = analyser;
+          detect.downsampleFactor = detect.audioContext.sampleRate >= 40000
+            ? Math.ceil(detect.audioContext.sampleRate / 24000)
+            : 1;
+          detect.inputBuffer = new Float32Array(analyser.fftSize);
+          detect.pitchBuffer = new Float32Array(analyser.fftSize / detect.downsampleFactor);
+          detect.correlationBuffer = new Float32Array(detect.pitchBuffer.length);
+          detect.pitchSampleRate = detect.audioContext.sampleRate / detect.downsampleFactor;
+          detect.lastPitchCheckAt = 0;
           detect.micEnabled = true;
           detectMicBtn.hidden = true;
           detectMicIndicator.hidden = false;
-          setMicStatus(`Listening… pluck the target note within ${selectedOctaveDescription()}.`);
+          setMicStatus(`Listening… pluck the target note within ${detect.rangeDescription}.`);
           const tick = () => {
             if (!detect.active) return;
             if (detect.micEnabled && detect.analyser) detectPitchTick();
@@ -816,25 +934,37 @@
         }
       }
 
-      // Estimate the fundamental frequency (Hz) using autocorrelation with
-      // parabolic interpolation. Returns null when the signal is too weak.
+      // Estimate the fundamental frequency (Hz) using autocorrelation. Returns null when the signal is too weak.
       function detectPitchFrequency() {
-        const buflen = detect.analyser.fftSize;
-        const timeData = new Float32Array(buflen);
-        detect.analyser.getFloatTimeDomainData(timeData);
+        const input = detect.inputBuffer;
+        const timeData = detect.pitchBuffer;
+        detect.analyser.getFloatTimeDomainData(input);
+        if (detect.downsampleFactor > 1) {
+          for (let i = 0; i < timeData.length; i++) {
+            let sum = 0;
+            const start = i * detect.downsampleFactor;
+            for (let sample = 0; sample < detect.downsampleFactor; sample++) {
+              sum += input[start + sample];
+            }
+            timeData[i] = sum / detect.downsampleFactor;
+          }
+        } else {
+          timeData.set(input);
+        }
+        const buflen = timeData.length;
 
         let sumSq = 0;
         for (let i = 0; i < buflen; i++) sumSq += timeData[i] * timeData[i];
         const rms = Math.sqrt(sumSq / buflen);
         if (rms < 0.008) return null;
 
-        const sampleRate = detect.audioContext.sampleRate;
-        const minFreq = 75;
-        const maxFreq = 720;
-        const maxLag = Math.min(Math.floor(sampleRate / minFreq), buflen - 1);
-        const minLag = Math.floor(sampleRate / maxFreq);
+        const sampleRate = detect.pitchSampleRate;
+        const minFreq = frequencyForMidi(Math.max(0, detect.rangeLowMidi - 1));
+        const maxFreq = frequencyForMidi(detect.rangeHighMidi + 1);
+        const maxLag = Math.min(Math.ceil(sampleRate / minFreq), buflen - 1);
+        const minLag = Math.max(2, Math.floor(sampleRate / maxFreq));
 
-        const nsdf = new Float32Array(maxLag - minLag + 1);
+        const nsdf = detect.correlationBuffer;
         let offset = 0;
         for (let lag = minLag; lag <= maxLag; lag++) {
           let crossCorrelation = 0;
@@ -869,9 +999,20 @@
         const center = nsdf[peakIdx];
         const right = nsdf[peakIdx + 1];
         const denominator = left - 2 * center + right;
-        const interpolationOffset = denominator === 0
+        let interpolationOffset = denominator === 0
           ? 0
           : Math.max(-0.5, Math.min(0.5, 0.5 * (left - right) / denominator));
+        if (minLag + peakIdx < 8 && center > 0) {
+          const cosine = Math.max(-1, Math.min(1, (left + right) / (2 * center)));
+          const angularFrequency = Math.acos(cosine);
+          const sine = Math.sin(angularFrequency);
+          if (angularFrequency > 0 && sine > 0) {
+            const cosineOffset = Math.atan2(right - left, 2 * center * sine) / angularFrequency;
+            if (Number.isFinite(cosineOffset) && Math.abs(cosineOffset) <= 0.5) {
+              interpolationOffset = cosineOffset;
+            }
+          }
+        }
         return sampleRate / (minLag + peakIdx + interpolationOffset);
       }
 
@@ -885,17 +1026,21 @@
 
       function updateDetectReadout(freq) {
         if (freq === null || freq <= 0) {
-          detectReadout.textContent = "—";
+          detectReadout.textContent = "-";
           detectBarFill.style.width = "0%";
           return;
         }
         detectReadout.textContent = noteShortLabel(midiFromFrequency(freq));
-        const norm = Math.max(0, Math.min(1, (freq - 82) / (659 - 82)));
+        const minFreq = frequencyForMidi(detect.rangeLowMidi);
+        const maxFreq = frequencyForMidi(detect.rangeHighMidi);
+        const norm = Math.max(0, Math.min(1, (freq - minFreq) / (maxFreq - minFreq)));
         detectBarFill.style.width = `${Math.round(norm * 100)}%`;
       }
 
       function detectPitchTick() {
         const now = performance.now();
+        if (now - detect.lastPitchCheckAt < 80) return;
+        detect.lastPitchCheckAt = now;
         const freq = detectPitchFrequency();
         if (freq === null) {
           updateDetectReadout(null);
@@ -943,7 +1088,7 @@
         detectBarFill.style.width = "100%";
 
         const hertz = Math.round(frequencyForMidi(detect.target.midi));
-        detectFeedback.textContent = `That's right — ${noteShortLabel(detect.target.midi)} (${hertz} Hz). Nice ear!`;
+        detectFeedback.textContent = `That's right - ${noteShortLabel(detect.target.midi)} (${hertz} Hz). Nice ear!`;
         detectFeedback.className = "feedback detect-feedback is-correct";
         detectTarget.classList.add("hit");
 
@@ -956,13 +1101,13 @@
         detect.incorrectCount++;
         detectIncorrectCount.textContent = String(detect.incorrectCount);
         const heard = noteShortLabel(midi);
-        detectReadCopy.textContent = `Heard ${heard} — keep trying the target.`;
+        detectReadCopy.textContent = `Heard ${heard} - keep trying the target.`;
         detectFeedback.textContent = `That was ${heard}, not ${noteShortLabel(detect.target.midi)}. Try again!`;
         detectFeedback.className = "feedback detect-feedback is-wrong";
         detectReadout.classList.add("miss");
         setTimeout(() => detectReadout.classList.remove("miss"), 400);
 
-        // Signal the error on the target note too, then revert it — the same
+        // Signal the error on the target note too, then revert it - the same
         // note stays up until the player plays it correctly.
         detectTarget.classList.add("shake");
         setTimeout(() => detectTarget.classList.remove("shake"), 450);
@@ -985,6 +1130,9 @@
         clearInterval(detect.timerInterval);
         detect.timerInterval = null;
         detect.analyser = null;
+        detect.inputBuffer = null;
+        detect.pitchBuffer = null;
+        detect.correlationBuffer = null;
         detect.micEnabled = false;
         detect.locked = false;
         detect.target = null;
