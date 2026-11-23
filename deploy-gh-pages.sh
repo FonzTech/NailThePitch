@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Deploy the latest static app (index / script / styles) to the gh-pages branch.
+# Deploy the latest static app (index / scripts / styles) to the gh-pages branch.
 #
 # Flow:
 #   1. Precheck: git working tree must be clean (no pending work).
 #   2. Switch to gh-pages.
-#   3. Pull the three source files in from master.
+#   3. Pull the app files and audio samples in from master.
 #   4. Commit them with an incremental, dated/time-stamped message.
 #   5. Push to origin/gh-pages.
 #   6. Switch back to master.
@@ -16,7 +16,7 @@ cd "$(dirname "$0")"
 
 MAIN_BRANCH="master"
 DEPLOY_BRANCH="gh-pages"
-FILES=(index.html script.js styles.css C2.wav C3.wav C4.wav C5.wav C6.wav C7.wav)
+FILES=(index.html script.js get-pitch.js styles.css C2.wav C3.wav C4.wav C5.wav C6.wav C7.wav)
 
 # --- 1. Precheck -----------------------------------------------------------------
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
