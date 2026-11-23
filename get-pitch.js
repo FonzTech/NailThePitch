@@ -136,7 +136,7 @@
     return effectiveSampleRate / (minLag + peakIdx + interpolationOffset);
   }
 
-  function createPitchTracker(confirmFrames = 4) {
+  function createPitchTracker(confirmFrames = 5) {
     if (!Number.isInteger(confirmFrames) || confirmFrames < 1) {
       throw new RangeError("confirmFrames must be a positive integer.");
     }
