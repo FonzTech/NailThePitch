@@ -594,6 +594,29 @@
         }
       }
 
+      function ensureMicrophoneApiAvailable() {
+        if (!window.isSecureContext) {
+          throw new Error("Microphone access requires HTTPS or localhost.");
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("This browser does not support microphone access.");
+        }
+      }
+
+      function microphoneErrorMessage(error) {
+        switch (error.name) {
+          case "NotAllowedError":
+          case "SecurityError":
+            return "Microphone permission was denied. Allow microphone access for this site in Chrome's site settings, then try again.";
+          case "NotFoundError":
+            return "No microphone was found on this device.";
+          case "NotReadableError":
+            return "The microphone is busy or unavailable. Close other apps using it and try again.";
+          default:
+            return error.message || "Microphone access was denied or unavailable.";
+        }
+      }
+
       function beginDetect() {
         const microphoneReady = detect.stream &&
           detect.stream.getAudioTracks().some(track => track.readyState === "live");
@@ -622,10 +645,8 @@
         detectMicCheckStatus.textContent = "Requesting microphone access…";
 
         try {
-          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error("Microphone access requires HTTPS or localhost.");
-          }
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          ensureMicrophoneApiAvailable();
+          const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
           if (attempt !== detectMicCheckAttempt) {
             stream.getTracks().forEach(track => track.stop());
             return;
@@ -644,7 +665,7 @@
           if (attempt !== detectMicCheckAttempt) return;
           console.error("Microphone check failed:", error);
           detectMicCheckStatus.classList.add("is-error");
-          detectMicCheckStatus.textContent = error.message || "Microphone access was denied or unavailable.";
+          detectMicCheckStatus.textContent = microphoneErrorMessage(error);
           detectMicCheckBtn.disabled = false;
           detectMicCheckBtn.focus();
         }
@@ -747,14 +768,20 @@
 
       async function enableDetectMic() {
         if (detect.micEnabled || !detect.active) return;
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          setMicStatus("Microphone needs a secure (HTTPS) connection.");
+        try {
+          ensureMicrophoneApiAvailable();
+        } catch (error) {
+          setMicStatus(microphoneErrorMessage(error));
           detectFeedback.textContent = "Microphone unavailable here.";
           detectFeedback.className = "feedback detect-feedback is-wrong";
           return;
         }
         try {
-          detect.stream = detect.stream || await navigator.mediaDevices.getUserMedia({ audio: true });
+          const hasLiveTrack = detect.stream &&
+            detect.stream.getAudioTracks().some(track => track.readyState === "live");
+          if (!hasLiveTrack) {
+            detect.stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          }
           const Ctor = window.AudioContext || window.webkitAudioContext;
           detect.audioContext = new Ctor();
           const source = detect.audioContext.createMediaStreamSource(detect.stream);
@@ -774,7 +801,8 @@
           };
           detect.rafId = requestAnimationFrame(tick);
         } catch (error) {
-          setMicStatus("Couldn't access the microphone. Check permissions.");
+          console.error("Could not start microphone input:", error);
+          setMicStatus(microphoneErrorMessage(error));
           detectFeedback.textContent = "Microphone access was denied or unavailable.";
           detectFeedback.className = "feedback detect-feedback is-wrong";
         }
