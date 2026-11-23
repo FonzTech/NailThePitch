@@ -828,6 +828,28 @@ h1, h2, p { margin-top: 0; }
   box-shadow: var(--card-shadow);
 }
 
+.detect-skip-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--green);
+  box-shadow: var(--card-shadow);
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease;
+}
+
+.detect-skip-btn svg { width: 20px; height: 20px; }
+.detect-skip-btn:hover { background: var(--hover-bg); transform: translateX(2px); }
+.detect-skip-btn:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
 .detect-mic-indicator svg { width: 19px; height: 19px; }
 
 .detect-kicker {
@@ -1166,6 +1188,7 @@ h1, h2, p { margin-top: 0; }
   }
   .detect-side { padding: 12px 14px; border-radius: 16px; }
   .detect-mic-indicator { top: 12px; left: 12px; width: 34px; height: 34px; }
+  .detect-skip-btn { top: 12px; right: 12px; width: 34px; height: 34px; }
   .detect-target { font-size: clamp(48px, 16vw, 68px); }
   .detect-readout { font-size: clamp(40px, 16vw, 68px); }
   .detect-kicker { margin: 6px 0; font-size: 12px; }
