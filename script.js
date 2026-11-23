@@ -125,14 +125,17 @@
         stableMidi: null,
         stableSince: null,
         stableLastSeenAt: null,
+        smoothedMidi: null,
         locked: false
       };
       let detectMicCheckAttempt = 0;
       // Detectable note range: E2 (MIDI 40) to E5 (MIDI 76).
       const DETECT_LOW_MIDI = 40;
       const DETECT_HIGH_MIDI = 76;
-      const DETECT_PITCH_CONFIRMATION_MS = 1000;
+      const DETECT_PITCH_CONFIRMATION_MS = 500;
       const DETECT_MAX_SAMPLE_GAP_MS = 250;
+      const DETECT_PITCH_SMOOTHING = 0.25;
+      const DETECT_AUTOCORRELATION_THRESHOLD = 0.8;
 
       let activeMode = null;
       let openForMode = null;
@@ -749,6 +752,7 @@
         detect.stableMidi = null;
         detect.stableSince = null;
         detect.stableLastSeenAt = null;
+        detect.smoothedMidi = null;
 
         detectTarget.textContent = noteShortLabel(pick);
         detectTarget.classList.remove("hit");
@@ -833,25 +837,50 @@
         const nsdf = new Float32Array(maxLag - minLag + 1);
         let offset = 0;
         for (let lag = minLag; lag <= maxLag; lag++) {
-          let sum = 0;
-          for (let i = 0; i + lag < buflen; i++) sum += timeData[i] * timeData[i + lag];
-          nsdf[offset++] = sum / (buflen - lag);
+          let crossCorrelation = 0;
+          let signalEnergy = 0;
+          for (let i = 0; i + lag < buflen; i++) {
+            const current = timeData[i];
+            const shifted = timeData[i + lag];
+            crossCorrelation += current * shifted;
+            signalEnergy += current * current + shifted * shifted;
+          }
+          nsdf[offset++] = signalEnergy === 0 ? 0 : (2 * crossCorrelation) / signalEnergy;
         }
 
-        let peak = -1;
+        let strongestPeak = -1;
+        let strongestPeakIdx = -1;
         let peakIdx = -1;
         for (let i = 1; i < nsdf.length - 1; i++) {
-          if (nsdf[i] > nsdf[i - 1] && nsdf[i] >= nsdf[i + 1] && nsdf[i] > 0 && nsdf[i] > peak) {
-            peak = nsdf[i];
-            peakIdx = i;
+          if (nsdf[i] > nsdf[i - 1] && nsdf[i] >= nsdf[i + 1] && nsdf[i] > 0) {
+            if (nsdf[i] >= DETECT_AUTOCORRELATION_THRESHOLD) {
+              peakIdx = i;
+              break;
+            }
+            if (nsdf[i] > strongestPeak) {
+              strongestPeak = nsdf[i];
+              strongestPeakIdx = i;
+            }
           }
         }
+        if (peakIdx < 0) peakIdx = strongestPeakIdx;
         if (peakIdx < 0) return null;
-        return sampleRate / (minLag + peakIdx);
+        const left = nsdf[peakIdx - 1];
+        const center = nsdf[peakIdx];
+        const right = nsdf[peakIdx + 1];
+        const denominator = left - 2 * center + right;
+        const interpolationOffset = denominator === 0
+          ? 0
+          : Math.max(-0.5, Math.min(0.5, 0.5 * (left - right) / denominator));
+        return sampleRate / (minLag + peakIdx + interpolationOffset);
+      }
+
+      function midiValueFromFrequency(freq) {
+        return 12 * (Math.log(freq / 440) / Math.log(2)) + 69;
       }
 
       function midiFromFrequency(freq) {
-        return Math.round(12 * (Math.log(freq / 440) / Math.log(2)) + 69);
+        return Math.round(midiValueFromFrequency(freq));
       }
 
       function updateDetectReadout(freq) {
@@ -868,14 +897,21 @@
       function detectPitchTick() {
         const now = performance.now();
         const freq = detectPitchFrequency();
-        updateDetectReadout(freq);
         if (freq === null) {
+          updateDetectReadout(null);
           detect.stableMidi = null;
           detect.stableSince = null;
           detect.stableLastSeenAt = null;
+          detect.smoothedMidi = null;
           return;
         }
-        const midi = midiFromFrequency(freq);
+        const rawMidi = midiValueFromFrequency(freq);
+        detect.smoothedMidi = detect.smoothedMidi === null
+          ? rawMidi
+          : detect.smoothedMidi + DETECT_PITCH_SMOOTHING * (rawMidi - detect.smoothedMidi);
+        const smoothedFrequency = 440 * Math.pow(2, (detect.smoothedMidi - 69) / 12);
+        updateDetectReadout(smoothedFrequency);
+        const midi = Math.round(detect.smoothedMidi);
         if (detect.locked) return;
 
         if (detect.stableMidi !== midi ||
@@ -896,6 +932,7 @@
         detect.stableMidi = null;
         detect.stableSince = null;
         detect.stableLastSeenAt = null;
+        detect.smoothedMidi = null;
       }
 
       function handleDetectHit() {
@@ -954,6 +991,7 @@
         detect.stableMidi = null;
         detect.stableSince = null;
         detect.stableLastSeenAt = null;
+        detect.smoothedMidi = null;
         detect.lastHandledMidi = null;
 
         detectMicBtn.textContent = "Enable microphone";
