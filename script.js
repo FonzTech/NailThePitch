@@ -94,6 +94,8 @@
       const detectMicIndicator = document.querySelector("#detect-mic-indicator");
       const detectMicStatus = document.querySelector("#detect-mic-status");
       const detectReadout = document.querySelector("#detect-readout");
+      const detectReadoutNote = document.querySelector("#detect-readout-note");
+      const detectReadoutFrequency = document.querySelector("#detect-readout-frequency");
       const detectReadCopy = document.querySelector("#detect-read-copy");
       const detectBarFill = document.querySelector("#detect-bar-fill");
       const detectFeedback = document.querySelector("#detect-feedback");
@@ -794,7 +796,8 @@
         detect.locked = false;
         detect.lastHandledMidi = null;
         detectTarget.textContent = "-";
-        detectReadout.textContent = "-";
+        detectReadoutNote.textContent = "-";
+        detectReadoutFrequency.textContent = "- Hz";
         detectBarFill.style.width = "0%";
         detectFeedback.textContent = "";
         detectFeedback.className = "feedback detect-feedback";
@@ -866,7 +869,8 @@
 
         detectTarget.textContent = noteShortLabel(pick);
         detectTarget.classList.remove("hit");
-        detectReadout.textContent = "-";
+        detectReadoutNote.textContent = "-";
+        detectReadoutFrequency.textContent = "- Hz";
         detectReadCopy.textContent = "Play the target note to lock it in.";
         detectBarFill.style.width = "0%";
         detectFeedback.textContent = "";
@@ -1026,11 +1030,13 @@
 
       function updateDetectReadout(freq) {
         if (freq === null || freq <= 0) {
-          detectReadout.textContent = "-";
+          detectReadoutNote.textContent = "-";
+          detectReadoutFrequency.textContent = "- Hz";
           detectBarFill.style.width = "0%";
           return;
         }
-        detectReadout.textContent = noteShortLabel(midiFromFrequency(freq));
+        detectReadoutNote.textContent = noteShortLabel(midiFromFrequency(freq));
+        detectReadoutFrequency.textContent = `${Math.round(freq)} Hz`;
         const minFreq = frequencyForMidi(detect.rangeLowMidi);
         const maxFreq = frequencyForMidi(detect.rangeHighMidi);
         const norm = Math.max(0, Math.min(1, (freq - minFreq) / (maxFreq - minFreq)));
