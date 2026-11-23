@@ -79,6 +79,27 @@ function readPcm16Wav(filename) {
   return { samples, sampleRate };
 }
 
+function findInitialPluckPeak(samples, sampleRate) {
+  const windowSize = Math.round(sampleRate * 0.01);
+  const hopSize = Math.round(sampleRate * 0.005);
+  const searchEnd = Math.min(samples.length, Math.floor(sampleRate * 0.5));
+  let peakStart = 0;
+  let peakRms = 0;
+
+  for (let start = 0; start + windowSize <= searchEnd; start += hopSize) {
+    let sumSquared = 0;
+    for (let i = start; i < start + windowSize; i++) {
+      sumSquared += samples[i] * samples[i];
+    }
+    const rms = Math.sqrt(sumSquared / windowSize);
+    if (rms > peakRms) {
+      peakRms = rms;
+      peakStart = start;
+    }
+  }
+  return peakStart;
+}
+
 test("detects every chromatic pitch from E2 through E4", () => {
   for (const sampleRate of [44100, 48000]) {
     const options = {
@@ -119,6 +140,51 @@ test("detects the note in the provided octave-2 and octave-4 WAVs", () => {
         `${filename} at ${seconds}s: expected ${expected.toFixed(2)} Hz, received ${actual.toFixed(2)} Hz`
       );
     }
+  }
+});
+
+test("holds the plucked note steadily for at least one second", () => {
+  const options = {
+    minFrequency: frequencyForMidi(39),
+    maxFrequency: frequencyForMidi(72)
+  };
+
+  for (const [filename, midi] of WAV_NOTE_FILES) {
+    const { samples, sampleRate } = readPcm16Wav(filename);
+    const tracker = getPitch.createPitchTracker();
+    const expected = frequencyForMidi(midi);
+    const peakStart = findInitialPluckPeak(samples, sampleRate);
+    const hopSize = Math.round(sampleRate * 0.08);
+    const oneSecondLater = peakStart + sampleRate;
+    let firstDetectedAt = null;
+    let lastChunkStart = peakStart;
+
+    for (let start = peakStart; start < oneSecondLater; start += hopSize) {
+      if (start + CHUNK_SIZE > samples.length) break;
+      lastChunkStart = start;
+      const actual = tracker.getPitch(
+        samples.subarray(start, start + CHUNK_SIZE),
+        sampleRate,
+        options
+      );
+      if (actual === null) continue;
+
+      if (firstDetectedAt === null) firstDetectedAt = start;
+      assert.ok(
+        Math.abs(centsBetween(actual, expected)) < 35,
+        `${filename} at ${(start / sampleRate).toFixed(2)}s: expected ${expected.toFixed(2)} Hz, received ${actual.toFixed(2)} Hz`
+      );
+    }
+
+    assert.ok(firstDetectedAt !== null, `${filename} should produce a stable pitch`);
+    assert.ok(
+      firstDetectedAt - peakStart <= sampleRate * 0.4,
+      `${filename} should settle soon after its initial pluck peak`
+    );
+    assert.ok(
+      lastChunkStart >= oneSecondLater - hopSize,
+      `${filename} should provide a full second of pluck audio`
+    );
   }
 });
 

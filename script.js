@@ -94,6 +94,7 @@
       const detectMicIndicator = document.querySelector("#detect-mic-indicator");
       const detectSkipBtn = document.querySelector("#detect-skip-btn");
       const detectMicStatus = document.querySelector("#detect-mic-status");
+      const detectPitchTracker = getPitch.createPitchTracker();
       const detectReadout = document.querySelector("#detect-readout");
       const detectReadoutNote = document.querySelector("#detect-readout-note");
       const detectReadoutFrequency = document.querySelector("#detect-readout-frequency");
@@ -837,6 +838,7 @@
       }
 
       function generateDetectTarget() {
+        detectPitchTracker.reset();
         const candidates = [];
         if (detect.octaves.length) {
           detect.octaves.forEach(oct => {
@@ -931,7 +933,7 @@
       // Estimate the fundamental frequency (Hz) using autocorrelation. Returns null when the signal is too weak.
       function detectPitchFrequency() {
         detect.analyser.getFloatTimeDomainData(detect.inputBuffer);
-        return getPitch(detect.inputBuffer, detect.audioContext.sampleRate, {
+        return detectPitchTracker.getPitch(detect.inputBuffer, detect.audioContext.sampleRate, {
           minFrequency: frequencyForMidi(Math.max(0, detect.rangeLowMidi - 1)),
           maxFrequency: frequencyForMidi(detect.rangeHighMidi + 1)
         });
@@ -1070,6 +1072,7 @@
         detect.timerInterval = null;
         detect.analyser = null;
         detect.inputBuffer = null;
+        detectPitchTracker.reset();
         detect.micEnabled = false;
         detect.locked = false;
         detect.target = null;
