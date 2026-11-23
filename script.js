@@ -123,13 +123,16 @@
         rafId: null,
         micEnabled: false,
         stableMidi: null,
-        stableCount: 0,
+        stableSince: null,
+        stableLastSeenAt: null,
         locked: false
       };
       let detectMicCheckAttempt = 0;
       // Detectable note range: E2 (MIDI 40) to E5 (MIDI 76).
       const DETECT_LOW_MIDI = 40;
       const DETECT_HIGH_MIDI = 76;
+      const DETECT_PITCH_CONFIRMATION_MS = 1000;
+      const DETECT_MAX_SAMPLE_GAP_MS = 250;
 
       let activeMode = null;
       let openForMode = null;
@@ -744,7 +747,8 @@
         detect.locked = false;
         detect.lastHandledMidi = null;
         detect.stableMidi = null;
-        detect.stableCount = 0;
+        detect.stableSince = null;
+        detect.stableLastSeenAt = null;
 
         detectTarget.textContent = noteShortLabel(pick);
         detectTarget.classList.remove("hit");
@@ -862,23 +866,26 @@
       }
 
       function detectPitchTick() {
+        const now = performance.now();
         const freq = detectPitchFrequency();
         updateDetectReadout(freq);
         if (freq === null) {
-          detect.stableCount = 0;
           detect.stableMidi = null;
+          detect.stableSince = null;
+          detect.stableLastSeenAt = null;
           return;
         }
         const midi = midiFromFrequency(freq);
         if (detect.locked) return;
 
-        if (detect.stableMidi === midi) {
-          detect.stableCount++;
-        } else {
+        if (detect.stableMidi !== midi ||
+            detect.stableLastSeenAt === null ||
+            now - detect.stableLastSeenAt > DETECT_MAX_SAMPLE_GAP_MS) {
           detect.stableMidi = midi;
-          detect.stableCount = 1;
+          detect.stableSince = now;
         }
-        if (detect.stableCount < 6) return;
+        detect.stableLastSeenAt = now;
+        if (now - detect.stableSince < DETECT_PITCH_CONFIRMATION_MS) return;
 
         if (midi === detect.target.midi) {
           handleDetectHit(midi);
@@ -887,7 +894,8 @@
           detect.lastHandledMidi = midi;
         }
         detect.stableMidi = null;
-        detect.stableCount = 0;
+        detect.stableSince = null;
+        detect.stableLastSeenAt = null;
       }
 
       function handleDetectHit() {
@@ -944,7 +952,8 @@
         detect.locked = false;
         detect.target = null;
         detect.stableMidi = null;
-        detect.stableCount = 0;
+        detect.stableSince = null;
+        detect.stableLastSeenAt = null;
         detect.lastHandledMidi = null;
 
         detectMicBtn.textContent = "Enable microphone";
