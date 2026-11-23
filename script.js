@@ -92,6 +92,7 @@
       const detectCopy = document.querySelector("#detect-copy");
       const detectMicBtn = document.querySelector("#detect-mic-btn");
       const detectMicIndicator = document.querySelector("#detect-mic-indicator");
+      const detectSkipBtn = document.querySelector("#detect-skip-btn");
       const detectMicStatus = document.querySelector("#detect-mic-status");
       const detectReadout = document.querySelector("#detect-readout");
       const detectReadoutNote = document.querySelector("#detect-readout-note");
@@ -146,8 +147,10 @@
       const DETECT_HIGH_MIDI = 119; // B8
       const DETECT_PITCH_CONFIRMATION_MS = 500;
       const DETECT_MAX_SAMPLE_GAP_MS = 250;
-      const DETECT_PITCH_SMOOTHING = 0.25;
+      const DETECT_PITCH_SMOOTHING = 0.15;
       const DETECT_AUTOCORRELATION_THRESHOLD = 0.8;
+      const DETECT_AUTOCORRELATION_PEAK_MARGIN = 0.02;
+      const DETECT_SUBHARMONIC_CHECK_MIN_LAG = 12;
       const detectRangePresets = [
         { group: "Keyboards", value: "keys-108", label: "108 Keys (Custom Stuart & Sons) - C0 - B8, 9 Octaves", low: 12, high: 119 },
         { group: "Keyboards", value: "keys-97", label: "97 Keys (Bösendorfer Imperial) - C0 - C8, 8 Octaves", low: 12, high: 108 },
@@ -984,12 +987,11 @@
 
         let strongestPeak = -1;
         let strongestPeakIdx = -1;
-        let peakIdx = -1;
-        for (let i = 1; i < nsdf.length - 1; i++) {
+        let firstStrongPeakIdx = -1;
+        for (let i = 1; i < offset - 1; i++) {
           if (nsdf[i] > nsdf[i - 1] && nsdf[i] >= nsdf[i + 1] && nsdf[i] > 0) {
-            if (nsdf[i] >= DETECT_AUTOCORRELATION_THRESHOLD) {
-              peakIdx = i;
-              break;
+            if (firstStrongPeakIdx < 0 && nsdf[i] >= DETECT_AUTOCORRELATION_THRESHOLD) {
+              firstStrongPeakIdx = i;
             }
             if (nsdf[i] > strongestPeak) {
               strongestPeak = nsdf[i];
@@ -997,8 +999,27 @@
             }
           }
         }
-        if (peakIdx < 0) peakIdx = strongestPeakIdx;
-        if (peakIdx < 0) return null;
+        if (strongestPeakIdx < 0) return null;
+        let peakIdx = firstStrongPeakIdx >= 0 ? firstStrongPeakIdx : strongestPeakIdx;
+        // Prefer a clearly stronger full-period peak over its harmonic's half-period peak.
+        while (minLag + peakIdx >= DETECT_SUBHARMONIC_CHECK_MIN_LAG) {
+          const currentLag = minLag + peakIdx;
+          const doubledLag = currentLag * 2;
+          const lowerBound = Math.max(1, Math.floor(doubledLag * 0.88) - minLag);
+          const upperBound = Math.min(offset - 2, Math.ceil(doubledLag * 1.12) - minLag);
+          let lowerPeakIdx = -1;
+          for (let i = lowerBound; i <= upperBound; i++) {
+            const isPeak = nsdf[i] > nsdf[i - 1] && nsdf[i] >= nsdf[i + 1];
+            if (isPeak && (lowerPeakIdx < 0 || nsdf[i] > nsdf[lowerPeakIdx])) {
+              lowerPeakIdx = i;
+            }
+          }
+          if (lowerPeakIdx < 0 ||
+              nsdf[lowerPeakIdx] - nsdf[peakIdx] <= DETECT_AUTOCORRELATION_PEAK_MARGIN) {
+            break;
+          }
+          peakIdx = lowerPeakIdx;
+        }
         const left = nsdf[peakIdx - 1];
         const center = nsdf[peakIdx];
         const right = nsdf[peakIdx + 1];
@@ -1119,6 +1140,22 @@
         setTimeout(() => detectTarget.classList.remove("shake"), 450);
       }
 
+      function skipDetectTarget() {
+        if (!detect.active || detect.locked || !detect.target) return;
+
+        detect.locked = true;
+        detect.incorrectCount++;
+        detectIncorrectCount.textContent = String(detect.incorrectCount);
+        detectReadCopy.textContent = "Skipped. Moving to the next note.";
+        detectFeedback.textContent = `Skipped ${noteShortLabel(detect.target.midi)}. Counted as incorrect.`;
+        detectFeedback.className = "feedback detect-feedback is-wrong";
+        detectTarget.classList.add("shake");
+        setTimeout(() => detectTarget.classList.remove("shake"), 450);
+        setTimeout(() => {
+          if (detect.active && !detectScreen.hidden) generateDetectTarget();
+        }, 1200);
+      }
+
       function stopDetectSession() {
         detect.active = false;
         if (detect.rafId) {
@@ -1169,6 +1206,7 @@
         if (event.key === "Escape" && !detectModal.hidden) closeDetectModal();
       });
       detectMicBtn.addEventListener("click", enableDetectMic);
+      detectSkipBtn.addEventListener("click", skipDetectTarget);
       document.querySelector("#detect-back-button").addEventListener("click", stopDetectSession);
 
       function updateCarouselIndicators() {
