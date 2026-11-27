@@ -36,44 +36,64 @@
         }
       };
 
-      // Letter-note spellings used for the treble-staff game, matching the
-      // pitchClass names (flat-leaning for the ♭ spellings).
+      // Letter spellings used for the treble-staff game. Every black-key pitch
+      // class has BOTH a sharp and a flat spelling, so the player must read the
+      // exact accidental written on the staff (E♭ from D♯, A♭ from G♯, etc).
       const readPitchDefs = [
-        { name: "C",  letter: "C", accidental: "nat"   },
-        { name: "C♯", letter: "C", accidental: "sharp" },
-        { name: "D",  letter: "D", accidental: "nat"   },
-        { name: "E♭", letter: "E", accidental: "flat"  },
-        { name: "E",  letter: "E", accidental: "nat"   },
-        { name: "F",  letter: "F", accidental: "nat"   },
-        { name: "F♯", letter: "F", accidental: "sharp" },
-        { name: "G",  letter: "G", accidental: "nat"   },
-        { name: "A♭", letter: "A", accidental: "flat"  },
-        { name: "A",  letter: "A", accidental: "nat"   },
-        { name: "B♭", letter: "B", accidental: "flat"  },
-        { name: "B",  letter: "B", accidental: "nat"   }
+        { name: "C",  letter: "C", accidental: "nat",   midi:  0 },
+        { name: "C♯", letter: "C", accidental: "sharp", midi:  1 },
+        { name: "D♭", letter: "D", accidental: "flat",  midi:  1 },
+        { name: "D",  letter: "D", accidental: "nat",   midi:  2 },
+        { name: "D♯", letter: "D", accidental: "sharp", midi:  3 },
+        { name: "E♭", letter: "E", accidental: "flat",  midi:  3 },
+        { name: "E",  letter: "E", accidental: "nat",   midi:  4 },
+        { name: "F",  letter: "F", accidental: "nat",   midi:  5 },
+        { name: "F♯", letter: "F", accidental: "sharp", midi:  6 },
+        { name: "G♭", letter: "G", accidental: "flat",  midi:  6 },
+        { name: "G",  letter: "G", accidental: "nat",   midi:  7 },
+        { name: "G♯", letter: "G", accidental: "sharp", midi:  8 },
+        { name: "A♭", letter: "A", accidental: "flat",  midi:  8 },
+        { name: "A",  letter: "A", accidental: "nat",   midi:  9 },
+        { name: "A♯", letter: "A", accidental: "sharp", midi: 10 },
+        { name: "B♭", letter: "B", accidental: "flat",  midi: 10 },
+        { name: "B",  letter: "B", accidental: "nat",   midi: 11 }
       ];
 
-      // Solfège spellings (all-sharp, matching the solfegeClasses names).
+      // Solfège spellings for the treble-staff game, mirroring the letter set
+      // so every black-key class also has both a sharp and a flat spelling.
       const readSolfegioDefs = [
-        { name: "Do",  letter: "C", accidental: "nat"   },
-        { name: "Do#", letter: "C", accidental: "sharp" },
-        { name: "Re",  letter: "D", accidental: "nat"   },
-        { name: "Re#", letter: "D", accidental: "sharp" },
-        { name: "Mi",  letter: "E", accidental: "nat"   },
-        { name: "Fa",  letter: "F", accidental: "nat"   },
-        { name: "Fa#", letter: "F", accidental: "sharp" },
-        { name: "Sol", letter: "G", accidental: "nat"   },
-        { name: "Sol#",letter: "G", accidental: "sharp" },
-        { name: "La",  letter: "A", accidental: "nat"   },
-        { name: "La#", letter: "A", accidental: "sharp" },
-        { name: "Si",  letter: "B", accidental: "nat"   }
+        { name: "Do",   letter: "C", accidental: "nat",   midi:  0 },
+        { name: "Do#",  letter: "C", accidental: "sharp", midi:  1 },
+        { name: "Re♭",  letter: "D", accidental: "flat",  midi:  1 },
+        { name: "Re",   letter: "D", accidental: "nat",   midi:  2 },
+        { name: "Re#",  letter: "D", accidental: "sharp", midi:  3 },
+        { name: "Mi♭",  letter: "E", accidental: "flat",  midi:  3 },
+        { name: "Mi",   letter: "E", accidental: "nat",   midi:  4 },
+        { name: "Fa",   letter: "F", accidental: "nat",   midi:  5 },
+        { name: "Fa#",  letter: "F", accidental: "sharp", midi:  6 },
+        { name: "Sol♭", letter: "G", accidental: "flat",  midi:  6 },
+        { name: "Sol",  letter: "G", accidental: "nat",   midi:  7 },
+        { name: "Sol#", letter: "G", accidental: "sharp", midi:  8 },
+        { name: "La♭",  letter: "A", accidental: "flat",  midi:  8 },
+        { name: "La",   letter: "A", accidental: "nat",   midi:  9 },
+        { name: "La#",  letter: "A", accidental: "sharp", midi: 10 },
+        { name: "Si♭",  letter: "B", accidental: "flat",  midi: 10 },
+        { name: "Si",   letter: "B", accidental: "nat",   midi: 11 }
       ];
 
-      // The treble-staff spelling for a MIDI note under the active notation.
-      function readStaffDef(midi) {
+      // The full list of possible staff spellings for the active notation.
+      function readStaffDefs() {
         return activeNotation === "solfege"
-          ? readSolfegioDefs[midi % 12]
-          : readPitchDefs[midi % 12];
+          ? readSolfegioDefs
+          : readPitchDefs;
+      }
+
+      // The spelling(s) that match the given MIDI note's pitch class — one for
+      // natural notes, both the sharp and flat spelling for black-key notes so
+      // the written accidental is chosen at random.
+      function readSpellingDefs(midi) {
+        const pc = midi % 12;
+        return readStaffDefs().filter(d => d.midi === pc);
       }
 
       // Lead-in delay (ms) before the first note plays when entering a game.
@@ -1204,8 +1224,7 @@
       }
 
       // Build the treble-staff SVG with a G clef and the requested note.
-      function buildReadStaffSVG(midi) {
-        const def = readStaffDef(midi);
+      function buildReadStaffSVG(midi, def) {
         const octave = Math.floor(midi / 12) - 1;
         const halfSpace = readLetterHalfSpace(def.letter, octave);
 
@@ -1273,19 +1292,24 @@
       function staffClefY() { return 20 + 11 * 4 + 9; }
 
       function readRenderStaff() {
-        readStaffWrap.innerHTML = buildReadStaffSVG(read.currentQuestion.note.midi);
+        const q = read.currentQuestion;
+        readStaffWrap.innerHTML = buildReadStaffSVG(q.note.midi, q.def);
       }
 
       function readMakeQuestion() {
         const midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
+        const candidates = readSpellingDefs(midi);
+        const def = candidates[randomInt(0, candidates.length - 1)];
         const note = pitchFromMidi(midi);
-        const currentName = notationName(midi);
-        const others = notationClasses().filter(name => name !== currentName);
+        const currentName = def.name;
+        const others = readStaffDefs()
+          .map(d => d.name)
+          .filter(name => name !== currentName);
         const distractors = shuffle(others).slice(0, 11);
         const choices = shuffle([currentName, ...distractors]);
         const answer = currentName;
 
-        read.currentQuestion = { note, choices, answer };
+        read.currentQuestion = { note, choices, answer, def };
         read.answered = false;
         readFeedback.textContent = "";
         readFeedback.className = "feedback";
