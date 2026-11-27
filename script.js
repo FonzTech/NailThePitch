@@ -36,8 +36,8 @@
         }
       };
 
-      // Note spellings used for the treble-staff game. Each pitch class maps to
-      // a diatonic letter plus an accidental, matching the pitchClass names.
+      // Letter-note spellings used for the treble-staff game, matching the
+      // pitchClass names (flat-leaning for the ♭ spellings).
       const readPitchDefs = [
         { name: "C",  letter: "C", accidental: "nat"   },
         { name: "C♯", letter: "C", accidental: "sharp" },
@@ -52,6 +52,29 @@
         { name: "B♭", letter: "B", accidental: "flat"  },
         { name: "B",  letter: "B", accidental: "nat"   }
       ];
+
+      // Solfège spellings (all-sharp, matching the solfegeClasses names).
+      const readSolfegioDefs = [
+        { name: "Do",  letter: "C", accidental: "nat"   },
+        { name: "Do#", letter: "C", accidental: "sharp" },
+        { name: "Re",  letter: "D", accidental: "nat"   },
+        { name: "Re#", letter: "D", accidental: "sharp" },
+        { name: "Mi",  letter: "E", accidental: "nat"   },
+        { name: "Fa",  letter: "F", accidental: "nat"   },
+        { name: "Fa#", letter: "F", accidental: "sharp" },
+        { name: "Sol", letter: "G", accidental: "nat"   },
+        { name: "Sol#",letter: "G", accidental: "sharp" },
+        { name: "La",  letter: "A", accidental: "nat"   },
+        { name: "La#", letter: "A", accidental: "sharp" },
+        { name: "Si",  letter: "B", accidental: "nat"   }
+      ];
+
+      // The treble-staff spelling for a MIDI note under the active notation.
+      function readStaffDef(midi) {
+        return activeNotation === "solfege"
+          ? readSolfegioDefs[midi % 12]
+          : readPitchDefs[midi % 12];
+      }
 
       // Lead-in delay (ms) before the first note plays when entering a game.
       const settings = {
@@ -604,10 +627,17 @@
 
         // Adapt the modal to the chosen game. The full game always spans all
         // octaves and all 12 notes, so its octave/count fields aren't relevant.
+        // The read-the-staff game has a fixed staff range too, so it also only
+        // asks for the note names (letters vs solfège).
         if (mode === "full") {
           octaveModalKicker.textContent = "03 / THE FULL PICTURE";
           octaveModalTitle.textContent = "Note & octave";
           octaveModalCopy.textContent = "Pick the note names to use.";
+          noteModeFields.hidden = true;
+        } else if (mode === "read") {
+          octaveModalKicker.textContent = "05 / READ THE STAFF";
+          octaveModalTitle.textContent = "Read the staff";
+          octaveModalCopy.textContent = "Do you want letter names (ABCDEFG) or solfège (Do Re Mi)?";
           noteModeFields.hidden = true;
         } else {
           octaveModalKicker.textContent = "02 / STEP TWO";
@@ -621,8 +651,16 @@
         octaveModal.removeAttribute("inert");
         octaveModal.hidden = false;
         octaveModal.querySelector(".modal-dialog").focus();
-        // Wait until the browser has painted the modal before focusing the select.
-        requestAnimationFrame(() => octaveSelect.focus());
+        // Wait until the browser has painted the modal before focusing the
+        // active field: the octave select for range games, the notation select
+        // when the octave/count fields are hidden (full and read games).
+        requestAnimationFrame(() => {
+          if (noteModeFields.hidden) {
+            noteNotationSelect.focus();
+          } else {
+            octaveSelect.focus();
+          }
+        });
       }
 
       function closeOctaveModal() {
@@ -637,7 +675,11 @@
         const noteCount = Number(noteCountSelect.value) || 6;
         const notation = noteNotationSelect.value || "letters";
         closeOctaveModal();
-        startSession(mode, octave, noteCount, notation);
+        if (mode === "read") {
+          readStartSession(notation);
+        } else {
+          startSession(mode, octave, noteCount, notation);
+        }
       }
 
       // ---- Live note detection (guitar) ----
@@ -1163,7 +1205,7 @@
 
       // Build the treble-staff SVG with a G clef and the requested note.
       function buildReadStaffSVG(midi) {
-        const def = readPitchDefs[midi % 12];
+        const def = readStaffDef(midi);
         const octave = Math.floor(midi / 12) - 1;
         const halfSpace = readLetterHalfSpace(def.letter, octave);
 
@@ -1237,8 +1279,8 @@
       function readMakeQuestion() {
         const midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
         const note = pitchFromMidi(midi);
-        const currentName = pitchClasses[midi % 12];
-        const others = pitchClasses.filter(name => name !== currentName);
+        const currentName = notationName(midi);
+        const others = notationClasses().filter(name => name !== currentName);
         const distractors = shuffle(others).slice(0, 11);
         const choices = shuffle([currentName, ...distractors]);
         const answer = currentName;
@@ -1266,8 +1308,9 @@
         readQuestionCount.textContent = String(read.questions);
       }
 
-      function readStartSession() {
+      function readStartSession(notation) {
         activeMode = "read";
+        activeNotation = (notation === "solfege") ? "solfege" : "letters";
         read.active = true;
         read.correctCount = 0;
         read.incorrectCount = 0;
@@ -1445,7 +1488,7 @@
           } else if (mode === "detect") {
             openDetectModal();
           } else if (mode === "read") {
-            readStartSession();
+          openOctaveModal("read");
           } else {
             startSession(mode);
           }
