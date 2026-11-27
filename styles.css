@@ -1048,6 +1048,7 @@ h1, h2, p { margin-top: 0; }
 }
 
 .read-panel {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: grid;
@@ -1178,6 +1179,7 @@ h1, h2, p { margin-top: 0; }
   .question-copy { margin-bottom: 14px; font-size: 14px; }
   .answer-grid { gap: 6px; }
   .answer-button { min-width: 64px; min-height: 48px; font-size: 14px; }
+  .read-answer-side .answer-button { min-width: 0; }
   .detect-screen { padding-top: 8px; }
   .detect-panel { gap: 10px; }
   .detect-side { padding: 18px 14px; }
@@ -1282,6 +1284,11 @@ h1, h2, p { margin-top: 0; }
     text-align: left;
     white-space: nowrap;
   }
+  .listen-panel.game-five {
+    left: 48px;
+    top: 40px;
+    transform: translateX(-50%);
+  }
   .listen-label { display: none; }
   .sound-orb { width: 56px; margin: 0; flex: 0 0 auto; }
   .play-button { width: 39px; height: 39px; }
@@ -1322,9 +1329,28 @@ h1, h2, p { margin-top: 0; }
     grid-template-rows: minmax(0, 1fr) auto;
     gap: 9px;
   }
-  .read-staff-side { padding: 12px 14px; border-radius: 16px; }
-  .read-staff-wrap { max-width: 340px; }
-  .read-listen { margin-top: 8px; }
+  .read-staff-side {
+    padding: 12px 14px;
+    border-radius: 16px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .read-staff-wrap {
+    max-width: 128px;
+    flex: 1 1 auto;
+    min-height: 0;
+    transform: translateX(25%);
+  }
+  .read-listen {
+    margin-top: 0;
+    order: -1;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+  }
+  .read-listen .listen-hint { display: none; }
   .read-answer-side {
     padding: 18px 14px 14px;
     border-radius: 16px;
