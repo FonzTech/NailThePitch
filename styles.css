@@ -1071,7 +1071,8 @@ h1, h2, p { margin-top: 0; }
 
 .read-staff-wrap {
   width: 100%;
-  max-width: 460px;
+  max-width: 256px;
+  min-height: 232px;
   display: block;
 }
 

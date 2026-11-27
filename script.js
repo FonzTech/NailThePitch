@@ -1227,8 +1227,8 @@
       // ---- Read the staff (treble clef) ----
 
       const READ_LETTER_INDEX = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
-      const READ_LOW_MIDI = 60;  // C4 (middle C) - one ledger line below the staff
-      const READ_HIGH_MIDI = 77; // F5 (top line of the treble staff)
+      const READ_LOW_MIDI = 60 - 2;  // 60 is C4 (middle C) - one ledger line below the staff
+      const READ_HIGH_MIDI = 77 + 5; // 77 is F5 (top line of the treble staff)
 
       // Diatonic position of a note's letter as half-staff-gaps from the bottom
       // line (E4 = 0). Lines sit on integers, spaces on half-integers.
@@ -1252,8 +1252,8 @@
         const gap = 11;              // px between adjacent staff lines
         const staffTop = 20;         // y of the top (5th) line
         const staffBottom = staffTop + gap * 4;
-        const staffLeft = 104;       // where the 5 lines start
-        const staffRight = 200;
+        const staffLeft = 0;         // x where the 5 lines start (at the origin)
+        const staffRight = staffLeft + 96;
 
         // Notehead centre. halfSpace is measured from the BOTTOM line, so:
         const noteX = staffLeft + 64;
@@ -1293,8 +1293,16 @@
         const clefX = staffLeft + 5;
         const clefY = staffTop + 40;
 
+        // Size the viewBox (anchored at 0,0) to the rightmost and bottommost
+        // rendered content: staff + ledger lines, notehead, accidental when
+        // present, and the treble clef.
+        const noteBottom = noteY + 7;
+        const accBottom = acc ? noteY + 5 : -Infinity;
+        const vbW = Math.max(staffRight, noteX + 7, acc ? noteX - 20 + 16 : 0) + 4;
+        const vbH = Math.max(staffBottom, noteBottom, accBottom, clefY) + 4;
+
         const svg =
-          `<svg class="read-staff" viewBox="0 0 316 110" width="100%" role="img" aria-label="Treble staff showing ${def.name}${octave}">
+          `<svg class="read-staff" viewBox="0 0 ${vbW} ${vbH}" width="100%" role="img" aria-label="Treble staff showing ${def.name}${octave}">
             ${lines.join("")}
             ${ledgerSVG.join("")}
             <g class="read-clef">${readTrebleClef(clefX, clefY)}</g>
@@ -1323,7 +1331,8 @@
       }
 
       function readMakeQuestion() {
-        const midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
+        // const midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
+        const midi = READ_LOW_MIDI + 2;
         const candidates = readSpellingDefs(midi);
         const def = candidates[randomInt(0, candidates.length - 1)];
         const note = pitchFromMidi(midi);
@@ -1331,7 +1340,7 @@
         const others = readStaffDefs()
           .map(d => d.name)
           .filter(name => name !== currentName);
-        const distractors = shuffle(others).slice(0, 11);
+        const distractors = shuffle(others).slice(0, 7);
         const choices = shuffle([currentName, ...distractors]);
         const answer = currentName;
 
