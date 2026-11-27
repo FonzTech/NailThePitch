@@ -200,6 +200,7 @@
         questions: 0,
         startedAt: 0,
         timerInterval: null,
+        playTimer: null,
         currentQuestion: null,
         answered: false
       };
@@ -1227,8 +1228,8 @@
       // ---- Read the staff (treble clef) ----
 
       const READ_LETTER_INDEX = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
-      const READ_LOW_MIDI = 60;  // C4 (middle C) - one ledger line below the staff
-      const READ_HIGH_MIDI = 77; // F5 (top line of the treble staff)
+      const READ_LOW_MIDI = 60 - 2;  // 60 is C4 (middle C) - one ledger line below the staff
+      const READ_HIGH_MIDI = 77 + 5; // 77 is F5 (top line of the treble staff)
 
       // Diatonic position of a note's letter as half-staff-gaps from the bottom
       // line (E4 = 0). Lines sit on integers, spaces on half-integers.
@@ -1252,8 +1253,8 @@
         const gap = 11;              // px between adjacent staff lines
         const staffTop = 20;         // y of the top (5th) line
         const staffBottom = staffTop + gap * 4;
-        const staffLeft = 104;       // where the 5 lines start
-        const staffRight = 200;
+        const staffLeft = 0;         // x where the 5 lines start (at the origin)
+        const staffRight = staffLeft + 96;
 
         // Notehead centre. halfSpace is measured from the BOTTOM line, so:
         const noteX = staffLeft + 64;
@@ -1267,15 +1268,29 @@
 
         // Ledger lines below/above the staff. Draw a line for every staff-line
         // position from the first ledger up to (and including) the note's line,
-        // so notes resting in spaces also show the line beneath them.
+        // so notes resting in spaces also show the line beneath them. The two
+        // lowest and two highest notes in range skip their outermost line.
         const ledgerSVG = [];
         const lowLedger = Math.floor(halfSpace);
+        console.log();
+        const suppressBottomLine =
+          (midi === READ_LOW_MIDI && def.accidental === "flat") ||
+          (midi === READ_LOW_MIDI + 3 && def.accidental === "flat") ||
+          (midi === READ_LOW_MIDI + 4) ||
+          (midi === READ_LOW_MIDI + 5 && def.accidental === "sharp");
+        const suppressTopLine =
+          (midi === READ_HIGH_MIDI && def.accidental === "flat") ||
+          (midi === READ_HIGH_MIDI - 2 && def.accidental === "sharp") ||
+          (midi === READ_HIGH_MIDI - 3) ||
+          (midi === READ_HIGH_MIDI - 4 && def.accidental === "flat");
         if (lowLedger < 0) {
           for (let pos = -1; pos >= lowLedger; pos--) {
+            if (suppressBottomLine && pos === lowLedger) continue;
             ledgerSVG.push(readLedgerLine(staffLeft + 48, staffBottom - pos * gap));
           }
         } else if (halfSpace > 4) {
           for (let pos = 5; pos <= Math.ceil(halfSpace); pos++) {
+            if (suppressTopLine && pos === Math.ceil(halfSpace)) continue;
             ledgerSVG.push(readLedgerLine(staffLeft + 48, staffTop - (pos - 4) * gap));
           }
         }
@@ -1293,8 +1308,16 @@
         const clefX = staffLeft + 5;
         const clefY = staffTop + 40;
 
+        // Size the viewBox (anchored at 0,0) to the rightmost and bottommost
+        // rendered content: staff + ledger lines, notehead, accidental when
+        // present, and the treble clef.
+        const noteBottom = noteY + 7;
+        const accBottom = acc ? noteY + 5 : -Infinity;
+        const vbW = Math.max(staffRight, noteX + 7, acc ? noteX - 20 + 16 : 0) + 4;
+        const vbH = Math.max(staffBottom, noteBottom, accBottom, clefY) + 4;
+
         const svg =
-          `<svg class="read-staff" viewBox="0 0 316 110" width="100%" role="img" aria-label="Treble staff showing ${def.name}${octave}">
+          `<svg class="read-staff" viewBox="0 0 ${vbW} ${vbH}" width="100%" role="img" aria-label="Treble staff showing ${def.name}${octave}">
             ${lines.join("")}
             ${ledgerSVG.join("")}
             <g class="read-clef">${readTrebleClef(clefX, clefY)}</g>
@@ -1323,15 +1346,34 @@
       }
 
       function readMakeQuestion() {
-        const midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
-        const candidates = readSpellingDefs(midi);
-        const def = candidates[randomInt(0, candidates.length - 1)];
+        // ---- Debug override: set FORCE_MIDI to a note (60..77) and
+        // FORCE_ACCIDENTAL to "natural", "sharp" or "flat" to pin the question.
+        const FORCE_MIDI = null;              // e.g. 63
+        const FORCE_ACCIDENTAL = null;        // "natural" | "sharp" | "flat"
+
+        let midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
+        let def = null;
+        if (FORCE_MIDI != null) {
+          midi = FORCE_MIDI;
+          const forceType = FORCE_ACCIDENTAL
+            ? (FORCE_ACCIDENTAL === "natural" ? "nat" : FORCE_ACCIDENTAL)
+            : null;
+          const matching = readStaffDefs().filter(
+            d => d.midi === midi % 12 && (forceType == null || d.accidental === forceType)
+          );
+          def = matching[0] ||
+            readSpellingDefs(midi)[0] ||
+            readStaffDefs().find(d => d.midi === midi % 12);
+        } else {
+          const candidates = readSpellingDefs(midi);
+          def = candidates[randomInt(0, candidates.length - 1)];
+        }
         const note = pitchFromMidi(midi);
         const currentName = def.name;
         const others = readStaffDefs()
           .map(d => d.name)
           .filter(name => name !== currentName);
-        const distractors = shuffle(others).slice(0, 11);
+        const distractors = shuffle(others).slice(0, 7);
         const choices = shuffle([currentName, ...distractors]);
         const answer = currentName;
 
@@ -1385,12 +1427,16 @@
         }, 1000);
 
         readMakeQuestion();
+        clearTimeout(read.playTimer);
+        read.playTimer = setTimeout(readPlayNote, settings.entryDelay);
       }
 
       function readStopSession() {
         read.active = false;
         clearInterval(read.timerInterval);
         read.timerInterval = null;
+        clearTimeout(read.playTimer);
+        read.playTimer = null;
         read.currentQuestion = null;
         readScreen.hidden = true;
         homeScreen.hidden = false;
@@ -1464,6 +1510,7 @@
       function readNextQuestion() {
         if (!read.active) return;
         readMakeQuestion();
+        readPlayNote();
       }
 
       document.querySelector("#read-back-button").addEventListener("click", readStopSession);
