@@ -10,10 +10,16 @@ Nail The Pitch is a small web app for training your **absolute pitch**, one note
 
 ## Features
 
-- **3 progressive training levels:**
+- **3 progressive ear-training levels:**
   1. **Find the octave** - hear the pitch and pinpoint its place.
   2. **Name the note** - recognize the note, whatever the octave.
   3. **Note & octave** - the full picture: identify note and octave in one go.
+
+- **Live note detection** - play a note on your guitar and let the microphone
+  hear it and score your pitch against a target.
+
+- **Read the staff** - a treble staff with a G clef shows a random note
+  (natural, sharp, or flat) and you name it by sight.
 
 - **Recorded piano samples** played and pitch-shifted with the Web Audio API.
 - **Live session statistics** - time, correct answers, incorrect answers, and question count.
@@ -69,7 +75,7 @@ The detected engine is also announced in the browser console on load, e.g.
 
 ## Usage
 
-1. On the home screen, choose one of the three training modes.
+1. On the home screen, choose one of the training modes.
 2. Tap (or click) the sound orb to play the note again as often as you like.
 3. Pick your answer from the options shown.
 4. Get instant feedback and move on to the next note.
