@@ -1078,10 +1078,26 @@ h1, h2, p { margin-top: 0; }
 }
 
 .read-staff {
+  position: relative;
+  z-index: 2;
   display: block;
   width: 100%;
   height: auto;
   overflow: visible;
+  transform: scale(var(--staff-zoom, 1));
+  transform-origin: 50% 50%;
+  transition: transform 160ms ease;
+  cursor: zoom-in;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.read-staff:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.read-staff[data-zoom="3"] {
+  cursor: zoom-out;
 }
 
 .read-staff line {
@@ -1096,10 +1112,10 @@ h1, h2, p { margin-top: 0; }
   stroke-linecap: round;
 }
 
-.read-clef-glyph {
-  font-family: "Apple Symbols", "Noto Music", "Segoe UI Symbol", "Bravura", serif;
+.read-clef-path {
   fill: var(--ink);
-  font-size: 60px;
+  stroke: var(--ink);
+  stroke-width: 3;
 }
 
 .read-notehead {
@@ -1108,9 +1124,8 @@ h1, h2, p { margin-top: 0; }
 }
 
 .read-accidental {
-  font-family: "Apple Symbols", "Noto Music", "Segoe UI Symbol", serif;
   fill: var(--ink);
-  font-size: 26px;
+  stroke: none;
 }
 
 .read-listen {
@@ -1338,6 +1353,8 @@ h1, h2, p { margin-top: 0; }
     gap: 14px;
   }
   .read-staff-wrap {
+    position: relative;
+    z-index: 7;
     max-width: 128px;
     flex: 1 1 auto;
     min-height: 0;
