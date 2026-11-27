@@ -1267,15 +1267,29 @@
 
         // Ledger lines below/above the staff. Draw a line for every staff-line
         // position from the first ledger up to (and including) the note's line,
-        // so notes resting in spaces also show the line beneath them.
+        // so notes resting in spaces also show the line beneath them. The two
+        // lowest and two highest notes in range skip their outermost line.
         const ledgerSVG = [];
         const lowLedger = Math.floor(halfSpace);
+        console.log();
+        const suppressBottomLine =
+          (midi === READ_LOW_MIDI && def.accidental === "flat") ||
+          (midi === READ_LOW_MIDI + 3 && def.accidental === "flat") ||
+          (midi === READ_LOW_MIDI + 4) ||
+          (midi === READ_LOW_MIDI + 5 && def.accidental === "sharp");
+        const suppressTopLine =
+          (midi === READ_HIGH_MIDI && def.accidental === "flat") ||
+          (midi === READ_HIGH_MIDI - 2 && def.accidental === "sharp") ||
+          (midi === READ_HIGH_MIDI - 3) ||
+          (midi === READ_HIGH_MIDI - 4 && def.accidental === "flat");
         if (lowLedger < 0) {
           for (let pos = -1; pos >= lowLedger; pos--) {
+            if (suppressBottomLine && pos === lowLedger) continue;
             ledgerSVG.push(readLedgerLine(staffLeft + 48, staffBottom - pos * gap));
           }
         } else if (halfSpace > 4) {
           for (let pos = 5; pos <= Math.ceil(halfSpace); pos++) {
+            if (suppressTopLine && pos === Math.ceil(halfSpace)) continue;
             ledgerSVG.push(readLedgerLine(staffLeft + 48, staffTop - (pos - 4) * gap));
           }
         }
@@ -1331,10 +1345,28 @@
       }
 
       function readMakeQuestion() {
-        // const midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
-        const midi = READ_LOW_MIDI + 2;
-        const candidates = readSpellingDefs(midi);
-        const def = candidates[randomInt(0, candidates.length - 1)];
+        // ---- Debug override: set FORCE_MIDI to a note (60..77) and
+        // FORCE_ACCIDENTAL to "natural", "sharp" or "flat" to pin the question.
+        const FORCE_MIDI = null;              // e.g. 63
+        const FORCE_ACCIDENTAL = null;        // "natural" | "sharp" | "flat"
+
+        let midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
+        let def = null;
+        if (FORCE_MIDI != null) {
+          midi = FORCE_MIDI;
+          const forceType = FORCE_ACCIDENTAL
+            ? (FORCE_ACCIDENTAL === "natural" ? "nat" : FORCE_ACCIDENTAL)
+            : null;
+          const matching = readStaffDefs().filter(
+            d => d.midi === midi % 12 && (forceType == null || d.accidental === forceType)
+          );
+          def = matching[0] ||
+            readSpellingDefs(midi)[0] ||
+            readStaffDefs().find(d => d.midi === midi % 12);
+        } else {
+          const candidates = readSpellingDefs(midi);
+          def = candidates[randomInt(0, candidates.length - 1)];
+        }
         const note = pitchFromMidi(midi);
         const currentName = def.name;
         const others = readStaffDefs()
