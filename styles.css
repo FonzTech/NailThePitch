@@ -3,6 +3,7 @@
   --paper: #f6f5f1;
   --surface: #fffefa;
   --ink: #20231f;
+  --staff-line: #797977;
   --muted: #777a72;
   --line: #e8e7df;
   --green: #355d49;
@@ -53,6 +54,7 @@
   --paper: #0b0c0a;
   --surface: #161714;
   --ink: #eef0e9;
+  --staff-line: #9a9d93;
   --muted: #9a9d93;
   --line: #26282a;
   --green: #8bc7a2;
@@ -1081,13 +1083,13 @@ h1, h2, p { margin-top: 0; }
 }
 
 .read-staff line {
-  stroke: var(--ink);
+  stroke: var(--staff-line);
   stroke-width: 1.2;
   stroke-linecap: round;
 }
 
 .read-ledger {
-  stroke: var(--ink);
+  stroke: var(--staff-line);
   stroke-width: 1.1;
   stroke-linecap: round;
 }

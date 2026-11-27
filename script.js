@@ -1253,9 +1253,10 @@
         const staffTop = 20;         // y of the top (5th) line
         const staffBottom = staffTop + gap * 4;
         const staffLeft = 104;       // where the 5 lines start
-        const staffRight = 272;
+        const staffRight = 200;
 
-        // Notehead centre y. halfSpace is measured from the BOTTOM line, so:
+        // Notehead centre. halfSpace is measured from the BOTTOM line, so:
+        const noteX = staffLeft + 64;
         const noteY = staffBottom - halfSpace * gap;
 
         const lines = [];
@@ -1271,26 +1272,32 @@
         const lowLedger = Math.floor(halfSpace);
         if (lowLedger < 0) {
           for (let pos = -1; pos >= lowLedger; pos--) {
-            ledgerSVG.push(readLedgerLine(staffLeft, staffBottom - pos * gap));
+            ledgerSVG.push(readLedgerLine(staffLeft + 48, staffBottom - pos * gap));
           }
         } else if (halfSpace > 4) {
           for (let pos = 5; pos <= Math.ceil(halfSpace); pos++) {
-            ledgerSVG.push(readLedgerLine(staffLeft, staffTop - (pos - 4) * gap));
+            ledgerSVG.push(readLedgerLine(staffLeft + 48, staffTop - (pos - 4) * gap));
           }
         }
 
+        // The accidental (♯/♭) sits just to the left of the notehead, aligned
+        // with the note's y position.
         const acc = readAccidentalGlyph(def.accidental);
         const accSVG = acc
-          ? `<text class="read-accidental" x="${staffLeft - 30}" y="${noteY + 5}">${acc}</text>`
+          ? `<text class="read-accidental" x="${noteX - 20}" y="${noteY + 5}">${acc}</text>`
           : "";
 
-        const notehead = `<ellipse class="read-notehead" cx="${staffLeft + 24}" cy="${noteY}" rx="7" ry="5.2" transform="rotate(-18 ${staffLeft + 24} ${noteY})"/>`;
+        const notehead = `<ellipse class="read-notehead" cx="${noteX}" cy="${noteY}" rx="7" ry="5.2" transform="rotate(-18 ${noteX} ${noteY})"/>`;
+
+        // Treble clef at the left margin of the staff, spanning its height.
+        const clefX = staffLeft + 5;
+        const clefY = staffTop + 40;
 
         const svg =
           `<svg class="read-staff" viewBox="0 0 316 110" width="100%" role="img" aria-label="Treble staff showing ${def.name}${octave}">
-            <g class="read-clef">${readTrebleClef()}</g>
             ${lines.join("")}
             ${ledgerSVG.join("")}
+            <g class="read-clef">${readTrebleClef(clefX, clefY)}</g>
             ${accSVG}
             ${notehead}
           </svg>`;
@@ -1303,14 +1310,12 @@
         return `<line class="read-ledger" x1="${x - half}" y1="${y}" x2="${x + 26 + half}" y2="${y}"/>`;
       }
 
-      // A G (treble) clef drawn as SVG text, sized to span the staff.
-      function readTrebleClef() {
-        return `<text class="read-clef-glyph" x="${staffLeftForClef()}" y="${staffClefY()}">𝄞</text>`;
+      // A G (treble) clef drawn as SVG text. x places its left edge at the
+      // staff's left margin and y (the baseline) sits it so the glyph spans
+      // from the top line down to the bottom of the staff.
+      function readTrebleClef(x, y) {
+        return `<text class="read-clef-glyph" x="${x}" y="${y}">𝄞</text>`;
       }
-
-      // Helper constants for the clef placement (kept in sync with buildReadStaffSVG).
-      function staffLeftForClef() { return 26; }
-      function staffClefY() { return 20 + 11 * 4 + 9; }
 
       function readRenderStaff() {
         const q = read.currentQuestion;
