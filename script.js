@@ -27,8 +27,74 @@
           title: "Live note detection",
           copy: "Play the target note on your guitar and let the mic hear it.",
           kicker: "Live play"
+        },
+        read: {
+          name: "Read the staff",
+          title: "Which note is written here?",
+          copy: "Read the note on the treble staff and pick its name.",
+          kicker: "Your turn"
         }
       };
+
+      // Letter spellings used for the treble-staff game. Every black-key pitch
+      // class has BOTH a sharp and a flat spelling, so the player must read the
+      // exact accidental written on the staff (E♭ from D♯, A♭ from G♯, etc).
+      const readPitchDefs = [
+        { name: "C",  letter: "C", accidental: "nat",   midi:  0 },
+        { name: "C♯", letter: "C", accidental: "sharp", midi:  1 },
+        { name: "D♭", letter: "D", accidental: "flat",  midi:  1 },
+        { name: "D",  letter: "D", accidental: "nat",   midi:  2 },
+        { name: "D♯", letter: "D", accidental: "sharp", midi:  3 },
+        { name: "E♭", letter: "E", accidental: "flat",  midi:  3 },
+        { name: "E",  letter: "E", accidental: "nat",   midi:  4 },
+        { name: "F",  letter: "F", accidental: "nat",   midi:  5 },
+        { name: "F♯", letter: "F", accidental: "sharp", midi:  6 },
+        { name: "G♭", letter: "G", accidental: "flat",  midi:  6 },
+        { name: "G",  letter: "G", accidental: "nat",   midi:  7 },
+        { name: "G♯", letter: "G", accidental: "sharp", midi:  8 },
+        { name: "A♭", letter: "A", accidental: "flat",  midi:  8 },
+        { name: "A",  letter: "A", accidental: "nat",   midi:  9 },
+        { name: "A♯", letter: "A", accidental: "sharp", midi: 10 },
+        { name: "B♭", letter: "B", accidental: "flat",  midi: 10 },
+        { name: "B",  letter: "B", accidental: "nat",   midi: 11 }
+      ];
+
+      // Solfège spellings for the treble-staff game, mirroring the letter set
+      // so every black-key class also has both a sharp and a flat spelling.
+      const readSolfegioDefs = [
+        { name: "Do",   letter: "C", accidental: "nat",   midi:  0 },
+        { name: "Do#",  letter: "C", accidental: "sharp", midi:  1 },
+        { name: "Re♭",  letter: "D", accidental: "flat",  midi:  1 },
+        { name: "Re",   letter: "D", accidental: "nat",   midi:  2 },
+        { name: "Re#",  letter: "D", accidental: "sharp", midi:  3 },
+        { name: "Mi♭",  letter: "E", accidental: "flat",  midi:  3 },
+        { name: "Mi",   letter: "E", accidental: "nat",   midi:  4 },
+        { name: "Fa",   letter: "F", accidental: "nat",   midi:  5 },
+        { name: "Fa#",  letter: "F", accidental: "sharp", midi:  6 },
+        { name: "Sol♭", letter: "G", accidental: "flat",  midi:  6 },
+        { name: "Sol",  letter: "G", accidental: "nat",   midi:  7 },
+        { name: "Sol#", letter: "G", accidental: "sharp", midi:  8 },
+        { name: "La♭",  letter: "A", accidental: "flat",  midi:  8 },
+        { name: "La",   letter: "A", accidental: "nat",   midi:  9 },
+        { name: "La#",  letter: "A", accidental: "sharp", midi: 10 },
+        { name: "Si♭",  letter: "B", accidental: "flat",  midi: 10 },
+        { name: "Si",   letter: "B", accidental: "nat",   midi: 11 }
+      ];
+
+      // The full list of possible staff spellings for the active notation.
+      function readStaffDefs() {
+        return activeNotation === "solfege"
+          ? readSolfegioDefs
+          : readPitchDefs;
+      }
+
+      // The spelling(s) that match the given MIDI note's pitch class — one for
+      // natural notes, both the sharp and flat spelling for black-key notes so
+      // the written accidental is chosen at random.
+      function readSpellingDefs(midi) {
+        const pc = midi % 12;
+        return readStaffDefs().filter(d => d.midi === pc);
+      }
 
       // Lead-in delay (ms) before the first note plays when entering a game.
       const settings = {
@@ -112,6 +178,31 @@
       const detectMicCheckBtn = document.querySelector("#detect-mic-check");
       const detectOctaveCheckboxes = document.querySelector("#detect-octave-checkboxes");
       const detectStart = document.querySelector("#detect-start");
+
+      // Read-the-staff references.
+      const readScreen = document.querySelector("#read-screen");
+      const readModeName = document.querySelector("#read-mode-name");
+      const readStaffWrap = document.querySelector("#read-staff-wrap");
+      const readSoundOrb = document.querySelector("#read-sound-orb");
+      const readAnswerGrid = document.querySelector("#read-answer-grid");
+      const readFeedback = document.querySelector("#read-feedback");
+      const readNextButton = document.querySelector("#read-next-button");
+      const readTimer = document.querySelector("#read-timer");
+      const readCorrectCount = document.querySelector("#read-correct-count");
+      const readIncorrectCount = document.querySelector("#read-incorrect-count");
+      const readQuestionCount = document.querySelector("#read-question-count");
+
+      // Read-the-staff state.
+      const read = {
+        active: false,
+        correctCount: 0,
+        incorrectCount: 0,
+        questions: 0,
+        startedAt: 0,
+        timerInterval: null,
+        currentQuestion: null,
+        answered: false
+      };
 
       // Live note detection (guitar) state.
       const detect = {
@@ -415,7 +506,7 @@
       // Synthesizer fallback for file:// usage where the WAV samples can't be
       // fetched. Builds a soft tone from a fundamental plus harmonics with an
       // amplitude envelope, matching the original pre-sample behaviour.
-      function synthNote(context, midi, start) {
+      function synthNote(context, midi, start, orb = soundOrb) {
         const frequency = 440 * Math.pow(2, (midi - 69) / 12);
         const partials = [
           { multiple: 1, gain: 0.72 },
@@ -436,10 +527,10 @@
           oscillator.stop(start + 1.4);
         });
         clearTimeout(audioStopTimer);
-        audioStopTimer = setTimeout(() => soundOrb.classList.remove("is-playing"), 1450);
+        audioStopTimer = setTimeout(() => orb.classList.remove("is-playing"), 1450);
       }
 
-      function playSampleNote(context, midi, url) {
+      function playSampleNote(context, midi, url, orb = soundOrb) {
         if (activeSampleSource) {
           activeSampleSource.onended = null;
           activeSampleSource.stop();
@@ -455,7 +546,7 @@
         source.onended = () => {
           if (activeSampleSource === source) {
             activeSampleSource = null;
-            soundOrb.classList.remove("is-playing");
+            orb.classList.remove("is-playing");
           }
         };
         source.start(context.currentTime + 0.02);
@@ -556,10 +647,17 @@
 
         // Adapt the modal to the chosen game. The full game always spans all
         // octaves and all 12 notes, so its octave/count fields aren't relevant.
+        // The read-the-staff game has a fixed staff range too, so it also only
+        // asks for the note names (letters vs solfège).
         if (mode === "full") {
           octaveModalKicker.textContent = "03 / THE FULL PICTURE";
           octaveModalTitle.textContent = "Note & octave";
           octaveModalCopy.textContent = "Pick the note names to use.";
+          noteModeFields.hidden = true;
+        } else if (mode === "read") {
+          octaveModalKicker.textContent = "05 / READ THE STAFF";
+          octaveModalTitle.textContent = "Read the staff";
+          octaveModalCopy.textContent = "Do you want letter names (ABCDEFG) or solfège (Do Re Mi)?";
           noteModeFields.hidden = true;
         } else {
           octaveModalKicker.textContent = "02 / STEP TWO";
@@ -573,8 +671,16 @@
         octaveModal.removeAttribute("inert");
         octaveModal.hidden = false;
         octaveModal.querySelector(".modal-dialog").focus();
-        // Wait until the browser has painted the modal before focusing the select.
-        requestAnimationFrame(() => octaveSelect.focus());
+        // Wait until the browser has painted the modal before focusing the
+        // active field: the octave select for range games, the notation select
+        // when the octave/count fields are hidden (full and read games).
+        requestAnimationFrame(() => {
+          if (noteModeFields.hidden) {
+            noteNotationSelect.focus();
+          } else {
+            octaveSelect.focus();
+          }
+        });
       }
 
       function closeOctaveModal() {
@@ -589,7 +695,11 @@
         const noteCount = Number(noteCountSelect.value) || 6;
         const notation = noteNotationSelect.value || "letters";
         closeOctaveModal();
-        startSession(mode, octave, noteCount, notation);
+        if (mode === "read") {
+          readStartSession(notation);
+        } else {
+          startSession(mode, octave, noteCount, notation);
+        }
       }
 
       // ---- Live note detection (guitar) ----
@@ -747,6 +857,27 @@
         enableDetectMic();
       }
 
+      // Audio capture constraints tuned for pitch detection: disable all
+      // processing that would colour the signal and request a clean mono 44.1kHz
+      // stream so low guitar/bass strings keep their fundamentals.
+      const detectAudioConstraints = {
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          // Legacy Google/Chromium-specific options.
+          googEchoCancellation: false,
+          googAutoGainControl: false,
+          googNoiseSuppression: false,
+          // Prevents Chrome from cutting low frequencies (crucial for bass).
+          googHighpassFilter: false,
+          // Performance optimization for pitch detection.
+          channelCount: 1,
+          sampleRate: 44100
+        },
+        video: false
+      };
+
       async function checkDetectMicrophone() {
         const attempt = ++detectMicCheckAttempt;
         detectMicCheckBtn.disabled = true;
@@ -755,7 +886,7 @@
 
         try {
           ensureMicrophoneApiAvailable();
-          const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          const stream = await navigator.mediaDevices.getUserMedia(detectAudioConstraints);
           if (attempt !== detectMicCheckAttempt) {
             stream.getTracks().forEach(track => track.stop());
             return;
@@ -900,7 +1031,7 @@
           const hasLiveTrack = detect.stream &&
             detect.stream.getAudioTracks().some(track => track.readyState === "live");
           if (!hasLiveTrack) {
-            detect.stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+            detect.stream = await navigator.mediaDevices.getUserMedia(detectAudioConstraints);
           }
           const Ctor = window.AudioContext || window.webkitAudioContext;
           detect.audioContext = new Ctor();
@@ -1093,6 +1224,254 @@
         activeMode = null;
       }
 
+      // ---- Read the staff (treble clef) ----
+
+      const READ_LETTER_INDEX = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+      const READ_LOW_MIDI = 60;  // C4 (middle C) - one ledger line below the staff
+      const READ_HIGH_MIDI = 77; // F5 (top line of the treble staff)
+
+      // Diatonic position of a note's letter as half-staff-gaps from the bottom
+      // line (E4 = 0). Lines sit on integers, spaces on half-integers.
+      function readLetterHalfSpace(letter, octave) {
+        const diIndex = READ_LETTER_INDEX[letter] + 7 * (octave - 1); // E4 = 23
+        return (diIndex - 23) * 0.5;
+      }
+
+      // The accidental symbol (# or b) placed before the note on the staff.
+      function readAccidentalGlyph(accidental) {
+        if (accidental === "sharp") return "♯";
+        if (accidental === "flat") return "♭";
+        return null;
+      }
+
+      // Build the treble-staff SVG with a G clef and the requested note.
+      function buildReadStaffSVG(midi, def) {
+        const octave = Math.floor(midi / 12) - 1;
+        const halfSpace = readLetterHalfSpace(def.letter, octave);
+
+        const gap = 11;              // px between adjacent staff lines
+        const staffTop = 20;         // y of the top (5th) line
+        const staffBottom = staffTop + gap * 4;
+        const staffLeft = 104;       // where the 5 lines start
+        const staffRight = 200;
+
+        // Notehead centre. halfSpace is measured from the BOTTOM line, so:
+        const noteX = staffLeft + 64;
+        const noteY = staffBottom - halfSpace * gap;
+
+        const lines = [];
+        for (let i = 0; i < 5; i++) {
+          const y = staffTop + i * gap;
+          lines.push(`<line x1="${staffLeft}" y1="${y}" x2="${staffRight}" y2="${y}"/>`);
+        }
+
+        // Ledger lines below/above the staff. Draw a line for every staff-line
+        // position from the first ledger up to (and including) the note's line,
+        // so notes resting in spaces also show the line beneath them.
+        const ledgerSVG = [];
+        const lowLedger = Math.floor(halfSpace);
+        if (lowLedger < 0) {
+          for (let pos = -1; pos >= lowLedger; pos--) {
+            ledgerSVG.push(readLedgerLine(staffLeft + 48, staffBottom - pos * gap));
+          }
+        } else if (halfSpace > 4) {
+          for (let pos = 5; pos <= Math.ceil(halfSpace); pos++) {
+            ledgerSVG.push(readLedgerLine(staffLeft + 48, staffTop - (pos - 4) * gap));
+          }
+        }
+
+        // The accidental (♯/♭) sits just to the left of the notehead, aligned
+        // with the note's y position.
+        const acc = readAccidentalGlyph(def.accidental);
+        const accSVG = acc
+          ? `<text class="read-accidental" x="${noteX - 20}" y="${noteY + 5}">${acc}</text>`
+          : "";
+
+        const notehead = `<ellipse class="read-notehead" cx="${noteX}" cy="${noteY}" rx="7" ry="5.2" transform="rotate(-18 ${noteX} ${noteY})"/>`;
+
+        // Treble clef at the left margin of the staff, spanning its height.
+        const clefX = staffLeft + 5;
+        const clefY = staffTop + 40;
+
+        const svg =
+          `<svg class="read-staff" viewBox="0 0 316 110" width="100%" role="img" aria-label="Treble staff showing ${def.name}${octave}">
+            ${lines.join("")}
+            ${ledgerSVG.join("")}
+            <g class="read-clef">${readTrebleClef(clefX, clefY)}</g>
+            ${accSVG}
+            ${notehead}
+          </svg>`;
+
+        return svg;
+      }
+
+      function readLedgerLine(x, y) {
+        const half = 15;
+        return `<line class="read-ledger" x1="${x - half}" y1="${y}" x2="${x + 26 + half}" y2="${y}"/>`;
+      }
+
+      // A G (treble) clef drawn as SVG text. x places its left edge at the
+      // staff's left margin and y (the baseline) sits it so the glyph spans
+      // from the top line down to the bottom of the staff.
+      function readTrebleClef(x, y) {
+        return `<text class="read-clef-glyph" x="${x}" y="${y}">𝄞</text>`;
+      }
+
+      function readRenderStaff() {
+        const q = read.currentQuestion;
+        readStaffWrap.innerHTML = buildReadStaffSVG(q.note.midi, q.def);
+      }
+
+      function readMakeQuestion() {
+        const midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
+        const candidates = readSpellingDefs(midi);
+        const def = candidates[randomInt(0, candidates.length - 1)];
+        const note = pitchFromMidi(midi);
+        const currentName = def.name;
+        const others = readStaffDefs()
+          .map(d => d.name)
+          .filter(name => name !== currentName);
+        const distractors = shuffle(others).slice(0, 11);
+        const choices = shuffle([currentName, ...distractors]);
+        const answer = currentName;
+
+        read.currentQuestion = { note, choices, answer, def };
+        read.answered = false;
+        readFeedback.textContent = "";
+        readFeedback.className = "feedback";
+        readNextButton.hidden = true;
+        readAnswerGrid.replaceChildren();
+
+        choices.forEach(name => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "answer-button";
+          button.textContent = name;
+          button.dataset.answer = name;
+          button.addEventListener("click", () => readSubmitAnswer(button));
+          readAnswerGrid.append(button);
+        });
+
+        readRenderStaff();
+
+        read.questions++;
+        readQuestionCount.textContent = String(read.questions);
+      }
+
+      function readStartSession(notation) {
+        activeMode = "read";
+        activeNotation = (notation === "solfege") ? "solfege" : "letters";
+        read.active = true;
+        read.correctCount = 0;
+        read.incorrectCount = 0;
+        read.questions = 0;
+        readCorrectCount.textContent = "0";
+        readIncorrectCount.textContent = "0";
+        readQuestionCount.textContent = "0";
+        readTimer.textContent = "00:00";
+        readFeedback.textContent = "";
+        readFeedback.className = "feedback";
+        readNextButton.hidden = true;
+        readModeName.textContent = modes.read.name;
+
+        homeScreen.hidden = true;
+        readScreen.hidden = false;
+        app.classList.add("is-playing");
+
+        read.startedAt = Date.now();
+        clearInterval(read.timerInterval);
+        read.timerInterval = setInterval(() => {
+          readTimer.textContent = formatTime(Math.floor((Date.now() - read.startedAt) / 1000));
+        }, 1000);
+
+        readMakeQuestion();
+      }
+
+      function readStopSession() {
+        read.active = false;
+        clearInterval(read.timerInterval);
+        read.timerInterval = null;
+        read.currentQuestion = null;
+        readScreen.hidden = true;
+        homeScreen.hidden = false;
+        app.classList.remove("is-playing");
+        activeMode = null;
+      }
+
+      async function readPlayNote() {
+        const context = await getAudioContext();
+        if (!context || !read.currentQuestion || !read.active) return;
+        const question = read.currentQuestion;
+        const midi = question.note.midi;
+
+        if (readSoundOrb.classList.contains("is-playing")) {
+          readSoundOrb.classList.remove("is-playing");
+          void readSoundOrb.offsetWidth;
+        }
+        readSoundOrb.classList.add("is-playing");
+
+        if (!usesSamples) {
+          synthNote(context, midi, context.currentTime + 0.02, readSoundOrb);
+          return;
+        }
+
+        let buffers;
+        try {
+          buffers = await loadPianoSamples(context);
+        } catch (error) {
+          if (read.currentQuestion !== question || !read.active) return;
+          console.error("Failed to load piano samples:", error);
+          readFeedback.textContent = "Could not load the piano WAVs. Make sure C2.wav-C7.wav are in the project root.";
+          readFeedback.className = "feedback is-wrong";
+          return;
+        }
+
+        if (read.currentQuestion !== question || !read.active) return;
+        const sample = nearestPianoSample(midi);
+        playSampleNote(context, midi, buffers.get(sample.midi), readSoundOrb);
+      }
+
+      function readSubmitAnswer(button) {
+        if (read.answered) return;
+        read.answered = true;
+        const isCorrect = button.dataset.answer === read.currentQuestion.answer;
+        const rightAnswer = read.currentQuestion.answer;
+        const hertz = Math.round(frequencyForMidi(read.currentQuestion.note.midi));
+
+        if (isCorrect) {
+          read.correctCount++;
+          readCorrectCount.textContent = String(read.correctCount);
+          readFeedback.innerHTML = `That's right - <b>${rightAnswer} (${hertz} Hz)</b>. Nice read!`;
+          readFeedback.classList.add("is-correct");
+          button.classList.add("is-correct");
+        } else {
+          read.incorrectCount++;
+          readIncorrectCount.textContent = String(read.incorrectCount);
+          readFeedback.innerHTML = `Not quite - the note was <b>${rightAnswer} (${hertz} Hz)</b>.`;
+          readFeedback.classList.add("is-wrong");
+          button.classList.add("is-wrong");
+          const correctButton = [...readAnswerGrid.children].find(
+            option => option.dataset.answer === read.currentQuestion.answer
+          );
+          if (correctButton) correctButton.classList.add("is-correct");
+        }
+
+        readAnswerGrid.querySelectorAll("button").forEach(option => { option.disabled = true; });
+        readNextButton.hidden = false;
+        readNextButton.focus();
+      }
+
+      function readNextQuestion() {
+        if (!read.active) return;
+        readMakeQuestion();
+      }
+
+      document.querySelector("#read-back-button").addEventListener("click", readStopSession);
+      document.querySelector("#read-play-button").addEventListener("click", readPlayNote);
+      readNextButton.addEventListener("click", readNextQuestion);
+
+      // ---- End Read the staff ----
+
       // Wire the live detection controls.
       detectStart.addEventListener("click", beginDetect);
       detectModal.querySelectorAll("[data-detect-close]").forEach(el => {
@@ -1158,6 +1537,8 @@
             openOctaveModal(mode);
           } else if (mode === "detect") {
             openDetectModal();
+          } else if (mode === "read") {
+          openOctaveModal("read");
           } else {
             startSession(mode);
           }
@@ -1174,6 +1555,7 @@
       document.querySelector(".brand").addEventListener("click", event => {
         event.preventDefault();
         if (activeMode === "detect") stopDetectSession();
+        else if (activeMode === "read") readStopSession();
         else if (activeMode) stopSession();
       });
       document.querySelector("#play-button").addEventListener("click", playNote);
