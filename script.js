@@ -857,6 +857,27 @@
         enableDetectMic();
       }
 
+      // Audio capture constraints tuned for pitch detection: disable all
+      // processing that would colour the signal and request a clean mono 44.1kHz
+      // stream so low guitar/bass strings keep their fundamentals.
+      const detectAudioConstraints = {
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          // Legacy Google/Chromium-specific options.
+          googEchoCancellation: false,
+          googAutoGainControl: false,
+          googNoiseSuppression: false,
+          // Prevents Chrome from cutting low frequencies (crucial for bass).
+          googHighpassFilter: false,
+          // Performance optimization for pitch detection.
+          channelCount: 1,
+          sampleRate: 44100
+        },
+        video: false
+      };
+
       async function checkDetectMicrophone() {
         const attempt = ++detectMicCheckAttempt;
         detectMicCheckBtn.disabled = true;
@@ -865,7 +886,7 @@
 
         try {
           ensureMicrophoneApiAvailable();
-          const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          const stream = await navigator.mediaDevices.getUserMedia(detectAudioConstraints);
           if (attempt !== detectMicCheckAttempt) {
             stream.getTracks().forEach(track => track.stop());
             return;
@@ -1010,7 +1031,7 @@
           const hasLiveTrack = detect.stream &&
             detect.stream.getAudioTracks().some(track => track.readyState === "live");
           if (!hasLiveTrack) {
-            detect.stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+            detect.stream = await navigator.mediaDevices.getUserMedia(detectAudioConstraints);
           }
           const Ctor = window.AudioContext || window.webkitAudioContext;
           detect.audioContext = new Ctor();
