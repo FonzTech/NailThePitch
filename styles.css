@@ -100,7 +100,6 @@ body {
   height: 100dvh;
   min-width: 320px;
   margin: 0;
-  overflow: hidden;
   background:
     radial-gradient(ellipse at 92% 8%, var(--body-glow), transparent 29%),
     var(--paper);
@@ -111,8 +110,7 @@ button { font: inherit; }
 
 .app {
   width: min(1120px, 100%);
-  height: 100%;
-  max-height: 720px;
+  max-height: 880px;
   margin-inline: auto;
   padding: clamp(18px, 3.5vh, 34px) clamp(20px, 5vw, 64px);
   display: flex;
@@ -194,7 +192,6 @@ button { font: inherit; }
 main { flex: 1; min-height: 0; }
 
 .home-screen {
-  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1039,6 +1036,121 @@ h1, h2, p { margin-top: 0; }
   border: 0;
 }
 
+/* ---- Read the staff (treble clef) ---- */
+.read-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-top: clamp(13px, 2.6vh, 25px);
+  padding-bottom: 6px;
+}
+
+.read-panel {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: clamp(12px, 2.4vw, 20px);
+}
+
+.read-staff-side {
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(18px, 3vw, 30px) clamp(14px, 2.6vw, 26px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel-pale);
+  box-shadow: var(--shadow);
+}
+
+.read-staff-wrap {
+  width: 100%;
+  max-width: 460px;
+  display: block;
+}
+
+.read-staff {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.read-staff line {
+  stroke: var(--ink);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.read-ledger {
+  stroke: var(--ink);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+}
+
+.read-clef-glyph {
+  font-family: "Apple Symbols", "Noto Music", "Segoe UI Symbol", "Bravura", serif;
+  fill: var(--ink);
+  font-size: 60px;
+}
+
+.read-notehead {
+  fill: var(--ink);
+  stroke: none;
+}
+
+.read-accidental {
+  font-family: "Apple Symbols", "Noto Music", "Segoe UI Symbol", serif;
+  fill: var(--ink);
+  font-size: 26px;
+}
+
+.read-listen {
+  width: 100%;
+  max-width: 300px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+  margin-top: clamp(10px, 2vh, 18px);
+  background: transparent;
+  text-align: left;
+}
+
+.read-listen .sound-orb {
+  width: clamp(56px, 7vw, 72px);
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+.read-listen .sound-orb::before,
+.read-listen .sound-orb::after {
+  width: 100%;
+  height: 100%;
+}
+
+.read-listen .listen-hint {
+  margin: 0;
+}
+
+.read-answer-side {
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(20px, 4vw, 38px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
 @media (max-width: 680px) {
   .app { padding: 16px 18px; }
   .topbar { min-height: 39px; }
@@ -1068,11 +1180,15 @@ h1, h2, p { margin-top: 0; }
   .detect-side { padding: 18px 14px; }
   .detect-target { font-size: clamp(56px, 16vw, 96px); }
   .detect-readout { font-size: clamp(44px, 14vw, 78px); }
+  .read-screen { padding-top: 8px; }
+  .read-panel { gap: 10px; }
+  .read-staff-side { padding: 16px 12px; }
+  .read-answer-side { padding: 18px 15px; }
 }
 
 @media (max-width: 460px) {
-  .app { padding: 13px 14px; }
-  .home-screen { justify-content: center; }
+  .app { padding: 13px 14px; height: 100%; }
+  .home-screen { justify-content: center; height: 100%; }
   .hero-title { font-size: clamp(40px, 11vw, 53px); }
   .hero-copy { max-width: 340px; font-size: 14px; line-height: 1.55; }
   .carousel-indicators {
@@ -1197,6 +1313,22 @@ h1, h2, p { margin-top: 0; }
   .detect-read-copy { margin-top: 10px; margin-bottom: 10px; }
   .detect-bar { width: min(200px, 78%); margin-bottom: 12px; }
   .detect-feedback { min-height: 29px; margin-top: 8px; font-size: 14px; }
+  .read-screen { padding-top: 5px; }
+  .read-panel {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 9px;
+  }
+  .read-staff-side { padding: 12px 14px; border-radius: 16px; }
+  .read-staff-wrap { max-width: 340px; }
+  .read-listen { margin-top: 8px; }
+  .read-answer-side {
+    padding: 18px 14px 14px;
+    border-radius: 16px;
+    justify-content: flex-start;
+    text-align: center;
+  }
+  .read-answer-side .answer-grid { justify-content: center; }
 }
 
 @media (max-height: 700px) and (min-width: 461px) {
@@ -1219,6 +1351,9 @@ h1, h2, p { margin-top: 0; }
   .question-copy { margin-bottom: 12px; }
   .detect-screen { padding-top: 5px; }
   .detect-side { padding-block: 14px; }
+  .read-screen { padding-top: 5px; }
+  .read-staff-side { padding-block: 14px; }
+  .read-answer-side { padding-block: 14px; }
 }
 /*
 @media (prefers-reduced-motion: reduce) {

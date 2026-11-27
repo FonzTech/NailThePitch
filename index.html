@@ -45,10 +45,11 @@
           <span>Start wherever you are</span>
         </div>
         <div class="carousel-indicators" role="group" aria-label="Select a training game">
-          <button class="carousel-indicator" type="button" aria-label="Show game 1 of 4" aria-pressed="true" data-carousel-index="0"></button>
-          <button class="carousel-indicator" type="button" aria-label="Show game 2 of 4" aria-pressed="false" data-carousel-index="1"></button>
-          <button class="carousel-indicator" type="button" aria-label="Show game 3 of 4" aria-pressed="false" data-carousel-index="2"></button>
-          <button class="carousel-indicator" type="button" aria-label="Show game 4 of 4" aria-pressed="false" data-carousel-index="3"></button>
+          <button class="carousel-indicator" type="button" aria-label="Show game 1 of 5" aria-pressed="true" data-carousel-index="0"></button>
+          <button class="carousel-indicator" type="button" aria-label="Show game 2 of 5" aria-pressed="false" data-carousel-index="1"></button>
+          <button class="carousel-indicator" type="button" aria-label="Show game 3 of 5" aria-pressed="false" data-carousel-index="2"></button>
+          <button class="carousel-indicator" type="button" aria-label="Show game 4 of 5" aria-pressed="false" data-carousel-index="3"></button>
+          <button class="carousel-indicator" type="button" aria-label="Show game 5 of 5" aria-pressed="false" data-carousel-index="4"></button>
         </div>
         <div class="mode-grid">
           <button class="mode-card" type="button" data-mode="octave">
@@ -73,6 +74,12 @@
             <span class="mode-number">04 / LIVE PLAY</span>
             <span class="mode-name">Live note detection</span>
             <span class="mode-description">Play the note on your guitar, right into the mic.</span>
+            <span class="mode-arrow" aria-hidden="true">↗</span>
+          </button>
+          <button class="mode-card" type="button" data-mode="read">
+            <span class="mode-number">05 / READ THE STAFF</span>
+            <span class="mode-name">Read the staff</span>
+            <span class="mode-description">Name the note written on the treble clef.</span>
             <span class="mode-arrow" aria-hidden="true">↗</span>
           </button>
         </div>
@@ -179,6 +186,53 @@
         </div>
 
         <p class="feedback detect-feedback" id="detect-feedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="read-screen" id="read-screen" aria-label="Read the staff" hidden>
+        <div class="game-top">
+          <button class="back-button" id="read-back-button" type="button">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M12.5 4.5 7 10l5.5 5.5M7.5 10h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back to menu
+          </button>
+          <div class="game-mode-label">Now training<strong id="read-mode-name">Read the staff</strong></div>
+        </div>
+
+        <div class="stats" aria-label="Session statistics">
+          <div class="stat"><span class="stat-label">Time</span><strong class="stat-value" id="read-timer">00:00</strong></div>
+          <div class="stat stat-correct"><span class="stat-label">Correct</span><strong class="stat-value" id="read-correct-count">0</strong></div>
+          <div class="stat stat-incorrect"><span class="stat-label">Incorrect</span><strong class="stat-value" id="read-incorrect-count">0</strong></div>
+          <div class="stat"><span class="stat-label">Questions</span><strong class="stat-value" id="read-question-count">0</strong></div>
+        </div>
+
+        <div class="read-panel">
+          <section class="read-staff-side" aria-label="Treble staff with a note">
+            <div class="read-staff-wrap" id="read-staff-wrap"></div>
+            <div class="listen-panel read-listen">
+              <div class="sound-orb" id="read-sound-orb">
+                <button class="play-button" id="read-play-button" type="button" aria-label="Hear the note again">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M8 5.8c0-.78.85-1.26 1.52-.86l9.1 5.39a1 1 0 0 1 0 1.72l-9.1 5.39A1 1 0 0 1 8 16.58V5.8Z" fill="currentColor"/>
+                  </svg>
+                </button>
+              </div>
+              <p class="listen-hint">Read the note, then hear it again.</p>
+            </div>
+          </section>
+          <section class="read-answer-side" aria-labelledby="read-question-title">
+            <p class="question-kicker">Your turn</p>
+            <h2 class="question-title" id="read-question-title">Which note is written here?</h2>
+            <p class="question-copy" id="read-question-copy">Read the note on the staff and pick its name.</p>
+            <div class="answer-grid" id="read-answer-grid" role="group" aria-label="Answer choices"></div>
+            <p class="feedback" id="read-feedback" role="status" aria-live="polite"></p>
+            <div class="next-button-parent">
+              <button class="next-button" id="read-next-button" type="button" hidden>
+                Next note <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </section>
+        </div>
       </section>
     </main>
   </div>

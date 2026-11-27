@@ -27,8 +27,31 @@
           title: "Live note detection",
           copy: "Play the target note on your guitar and let the mic hear it.",
           kicker: "Live play"
+        },
+        read: {
+          name: "Read the staff",
+          title: "Which note is written here?",
+          copy: "Read the note on the treble staff and pick its name.",
+          kicker: "Your turn"
         }
       };
+
+      // Note spellings used for the treble-staff game. Each pitch class maps to
+      // a diatonic letter plus an accidental, matching the pitchClass names.
+      const readPitchDefs = [
+        { name: "C",  letter: "C", accidental: "nat"   },
+        { name: "C♯", letter: "C", accidental: "sharp" },
+        { name: "D",  letter: "D", accidental: "nat"   },
+        { name: "E♭", letter: "E", accidental: "flat"  },
+        { name: "E",  letter: "E", accidental: "nat"   },
+        { name: "F",  letter: "F", accidental: "nat"   },
+        { name: "F♯", letter: "F", accidental: "sharp" },
+        { name: "G",  letter: "G", accidental: "nat"   },
+        { name: "A♭", letter: "A", accidental: "flat"  },
+        { name: "A",  letter: "A", accidental: "nat"   },
+        { name: "B♭", letter: "B", accidental: "flat"  },
+        { name: "B",  letter: "B", accidental: "nat"   }
+      ];
 
       // Lead-in delay (ms) before the first note plays when entering a game.
       const settings = {
@@ -112,6 +135,31 @@
       const detectMicCheckBtn = document.querySelector("#detect-mic-check");
       const detectOctaveCheckboxes = document.querySelector("#detect-octave-checkboxes");
       const detectStart = document.querySelector("#detect-start");
+
+      // Read-the-staff references.
+      const readScreen = document.querySelector("#read-screen");
+      const readModeName = document.querySelector("#read-mode-name");
+      const readStaffWrap = document.querySelector("#read-staff-wrap");
+      const readSoundOrb = document.querySelector("#read-sound-orb");
+      const readAnswerGrid = document.querySelector("#read-answer-grid");
+      const readFeedback = document.querySelector("#read-feedback");
+      const readNextButton = document.querySelector("#read-next-button");
+      const readTimer = document.querySelector("#read-timer");
+      const readCorrectCount = document.querySelector("#read-correct-count");
+      const readIncorrectCount = document.querySelector("#read-incorrect-count");
+      const readQuestionCount = document.querySelector("#read-question-count");
+
+      // Read-the-staff state.
+      const read = {
+        active: false,
+        correctCount: 0,
+        incorrectCount: 0,
+        questions: 0,
+        startedAt: 0,
+        timerInterval: null,
+        currentQuestion: null,
+        answered: false
+      };
 
       // Live note detection (guitar) state.
       const detect = {
@@ -415,7 +463,7 @@
       // Synthesizer fallback for file:// usage where the WAV samples can't be
       // fetched. Builds a soft tone from a fundamental plus harmonics with an
       // amplitude envelope, matching the original pre-sample behaviour.
-      function synthNote(context, midi, start) {
+      function synthNote(context, midi, start, orb = soundOrb) {
         const frequency = 440 * Math.pow(2, (midi - 69) / 12);
         const partials = [
           { multiple: 1, gain: 0.72 },
@@ -436,10 +484,10 @@
           oscillator.stop(start + 1.4);
         });
         clearTimeout(audioStopTimer);
-        audioStopTimer = setTimeout(() => soundOrb.classList.remove("is-playing"), 1450);
+        audioStopTimer = setTimeout(() => orb.classList.remove("is-playing"), 1450);
       }
 
-      function playSampleNote(context, midi, url) {
+      function playSampleNote(context, midi, url, orb = soundOrb) {
         if (activeSampleSource) {
           activeSampleSource.onended = null;
           activeSampleSource.stop();
@@ -455,7 +503,7 @@
         source.onended = () => {
           if (activeSampleSource === source) {
             activeSampleSource = null;
-            soundOrb.classList.remove("is-playing");
+            orb.classList.remove("is-playing");
           }
         };
         source.start(context.currentTime + 0.02);
@@ -1093,6 +1141,244 @@
         activeMode = null;
       }
 
+      // ---- Read the staff (treble clef) ----
+
+      const READ_LETTER_INDEX = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+      const READ_LOW_MIDI = 60;  // C4 (middle C) - one ledger line below the staff
+      const READ_HIGH_MIDI = 77; // F5 (top line of the treble staff)
+
+      // Diatonic position of a note's letter as half-staff-gaps from the bottom
+      // line (E4 = 0). Lines sit on integers, spaces on half-integers.
+      function readLetterHalfSpace(letter, octave) {
+        const diIndex = READ_LETTER_INDEX[letter] + 7 * (octave - 1); // E4 = 23
+        return (diIndex - 23) * 0.5;
+      }
+
+      // The accidental symbol (# or b) placed before the note on the staff.
+      function readAccidentalGlyph(accidental) {
+        if (accidental === "sharp") return "♯";
+        if (accidental === "flat") return "♭";
+        return null;
+      }
+
+      // Build the treble-staff SVG with a G clef and the requested note.
+      function buildReadStaffSVG(midi) {
+        const def = readPitchDefs[midi % 12];
+        const octave = Math.floor(midi / 12) - 1;
+        const halfSpace = readLetterHalfSpace(def.letter, octave);
+
+        const gap = 11;              // px between adjacent staff lines
+        const staffTop = 20;         // y of the top (5th) line
+        const staffBottom = staffTop + gap * 4;
+        const staffLeft = 104;       // where the 5 lines start
+        const staffRight = 272;
+
+        // Notehead centre y. halfSpace is measured from the BOTTOM line, so:
+        const noteY = staffBottom - halfSpace * gap;
+
+        const lines = [];
+        for (let i = 0; i < 5; i++) {
+          const y = staffTop + i * gap;
+          lines.push(`<line x1="${staffLeft}" y1="${y}" x2="${staffRight}" y2="${y}"/>`);
+        }
+
+        // Ledger lines below/above the staff. Draw a line for every staff-line
+        // position from the first ledger up to (and including) the note's line,
+        // so notes resting in spaces also show the line beneath them.
+        const ledgerSVG = [];
+        const lowLedger = Math.floor(halfSpace);
+        if (lowLedger < 0) {
+          for (let pos = -1; pos >= lowLedger; pos--) {
+            ledgerSVG.push(readLedgerLine(staffLeft, staffBottom - pos * gap));
+          }
+        } else if (halfSpace > 4) {
+          for (let pos = 5; pos <= Math.ceil(halfSpace); pos++) {
+            ledgerSVG.push(readLedgerLine(staffLeft, staffTop - (pos - 4) * gap));
+          }
+        }
+
+        const acc = readAccidentalGlyph(def.accidental);
+        const accSVG = acc
+          ? `<text class="read-accidental" x="${staffLeft - 30}" y="${noteY + 5}">${acc}</text>`
+          : "";
+
+        const notehead = `<ellipse class="read-notehead" cx="${staffLeft + 24}" cy="${noteY}" rx="7" ry="5.2" transform="rotate(-18 ${staffLeft + 24} ${noteY})"/>`;
+
+        const svg =
+          `<svg class="read-staff" viewBox="0 0 316 110" width="100%" role="img" aria-label="Treble staff showing ${def.name}${octave}">
+            <g class="read-clef">${readTrebleClef()}</g>
+            ${lines.join("")}
+            ${ledgerSVG.join("")}
+            ${accSVG}
+            ${notehead}
+          </svg>`;
+
+        return svg;
+      }
+
+      function readLedgerLine(x, y) {
+        const half = 15;
+        return `<line class="read-ledger" x1="${x - half}" y1="${y}" x2="${x + 26 + half}" y2="${y}"/>`;
+      }
+
+      // A G (treble) clef drawn as SVG text, sized to span the staff.
+      function readTrebleClef() {
+        return `<text class="read-clef-glyph" x="${staffLeftForClef()}" y="${staffClefY()}">𝄞</text>`;
+      }
+
+      // Helper constants for the clef placement (kept in sync with buildReadStaffSVG).
+      function staffLeftForClef() { return 26; }
+      function staffClefY() { return 20 + 11 * 4 + 9; }
+
+      function readRenderStaff() {
+        readStaffWrap.innerHTML = buildReadStaffSVG(read.currentQuestion.note.midi);
+      }
+
+      function readMakeQuestion() {
+        const midi = randomInt(READ_LOW_MIDI, READ_HIGH_MIDI);
+        const note = pitchFromMidi(midi);
+        const currentName = pitchClasses[midi % 12];
+        const others = pitchClasses.filter(name => name !== currentName);
+        const distractors = shuffle(others).slice(0, 11);
+        const choices = shuffle([currentName, ...distractors]);
+        const answer = currentName;
+
+        read.currentQuestion = { note, choices, answer };
+        read.answered = false;
+        readFeedback.textContent = "";
+        readFeedback.className = "feedback";
+        readNextButton.hidden = true;
+        readAnswerGrid.replaceChildren();
+
+        choices.forEach(name => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "answer-button";
+          button.textContent = name;
+          button.dataset.answer = name;
+          button.addEventListener("click", () => readSubmitAnswer(button));
+          readAnswerGrid.append(button);
+        });
+
+        readRenderStaff();
+
+        read.questions++;
+        readQuestionCount.textContent = String(read.questions);
+      }
+
+      function readStartSession() {
+        activeMode = "read";
+        read.active = true;
+        read.correctCount = 0;
+        read.incorrectCount = 0;
+        read.questions = 0;
+        readCorrectCount.textContent = "0";
+        readIncorrectCount.textContent = "0";
+        readQuestionCount.textContent = "0";
+        readTimer.textContent = "00:00";
+        readFeedback.textContent = "";
+        readFeedback.className = "feedback";
+        readNextButton.hidden = true;
+        readModeName.textContent = modes.read.name;
+
+        homeScreen.hidden = true;
+        readScreen.hidden = false;
+        app.classList.add("is-playing");
+
+        read.startedAt = Date.now();
+        clearInterval(read.timerInterval);
+        read.timerInterval = setInterval(() => {
+          readTimer.textContent = formatTime(Math.floor((Date.now() - read.startedAt) / 1000));
+        }, 1000);
+
+        readMakeQuestion();
+      }
+
+      function readStopSession() {
+        read.active = false;
+        clearInterval(read.timerInterval);
+        read.timerInterval = null;
+        read.currentQuestion = null;
+        readScreen.hidden = true;
+        homeScreen.hidden = false;
+        app.classList.remove("is-playing");
+        activeMode = null;
+      }
+
+      async function readPlayNote() {
+        const context = await getAudioContext();
+        if (!context || !read.currentQuestion || !read.active) return;
+        const question = read.currentQuestion;
+        const midi = question.note.midi;
+
+        if (readSoundOrb.classList.contains("is-playing")) {
+          readSoundOrb.classList.remove("is-playing");
+          void readSoundOrb.offsetWidth;
+        }
+        readSoundOrb.classList.add("is-playing");
+
+        if (!usesSamples) {
+          synthNote(context, midi, context.currentTime + 0.02, readSoundOrb);
+          return;
+        }
+
+        let buffers;
+        try {
+          buffers = await loadPianoSamples(context);
+        } catch (error) {
+          if (read.currentQuestion !== question || !read.active) return;
+          console.error("Failed to load piano samples:", error);
+          readFeedback.textContent = "Could not load the piano WAVs. Make sure C2.wav-C7.wav are in the project root.";
+          readFeedback.className = "feedback is-wrong";
+          return;
+        }
+
+        if (read.currentQuestion !== question || !read.active) return;
+        const sample = nearestPianoSample(midi);
+        playSampleNote(context, midi, buffers.get(sample.midi), readSoundOrb);
+      }
+
+      function readSubmitAnswer(button) {
+        if (read.answered) return;
+        read.answered = true;
+        const isCorrect = button.dataset.answer === read.currentQuestion.answer;
+        const rightAnswer = read.currentQuestion.answer;
+        const hertz = Math.round(frequencyForMidi(read.currentQuestion.note.midi));
+
+        if (isCorrect) {
+          read.correctCount++;
+          readCorrectCount.textContent = String(read.correctCount);
+          readFeedback.innerHTML = `That's right - <b>${rightAnswer} (${hertz} Hz)</b>. Nice read!`;
+          readFeedback.classList.add("is-correct");
+          button.classList.add("is-correct");
+        } else {
+          read.incorrectCount++;
+          readIncorrectCount.textContent = String(read.incorrectCount);
+          readFeedback.innerHTML = `Not quite - the note was <b>${rightAnswer} (${hertz} Hz)</b>.`;
+          readFeedback.classList.add("is-wrong");
+          button.classList.add("is-wrong");
+          const correctButton = [...readAnswerGrid.children].find(
+            option => option.dataset.answer === read.currentQuestion.answer
+          );
+          if (correctButton) correctButton.classList.add("is-correct");
+        }
+
+        readAnswerGrid.querySelectorAll("button").forEach(option => { option.disabled = true; });
+        readNextButton.hidden = false;
+        readNextButton.focus();
+      }
+
+      function readNextQuestion() {
+        if (!read.active) return;
+        readMakeQuestion();
+      }
+
+      document.querySelector("#read-back-button").addEventListener("click", readStopSession);
+      document.querySelector("#read-play-button").addEventListener("click", readPlayNote);
+      readNextButton.addEventListener("click", readNextQuestion);
+
+      // ---- End Read the staff ----
+
       // Wire the live detection controls.
       detectStart.addEventListener("click", beginDetect);
       detectModal.querySelectorAll("[data-detect-close]").forEach(el => {
@@ -1158,6 +1444,8 @@
             openOctaveModal(mode);
           } else if (mode === "detect") {
             openDetectModal();
+          } else if (mode === "read") {
+            readStartSession();
           } else {
             startSession(mode);
           }
@@ -1174,6 +1462,7 @@
       document.querySelector(".brand").addEventListener("click", event => {
         event.preventDefault();
         if (activeMode === "detect") stopDetectSession();
+        else if (activeMode === "read") readStopSession();
         else if (activeMode) stopSession();
       });
       document.querySelector("#play-button").addEventListener("click", playNote);
