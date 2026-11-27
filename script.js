@@ -1238,10 +1238,14 @@
         return (diIndex - 23) * 0.5;
       }
 
-      // The accidental symbol (# or b) placed before the note on the staff.
-      function readAccidentalGlyph(accidental) {
-        if (accidental === "sharp") return "♯";
-        if (accidental === "flat") return "♭";
+      // Fixed vector paths keep accidentals consistent across system fonts.
+      function readAccidentalPath(accidental) {
+        if (accidental === "sharp") {
+          return "M6.42 28.98L12.79 25.59L12.79 18.95L15.31 18.95L15.31 24.24L19.21 22.17L19.21 25.88L15.31 27.95L15.31 38.84L19.21 36.77L19.21 40.48L15.31 42.55L15.31 49.73L12.79 49.73L12.79 43.90L6.42 47.29L6.42 53.96L3.91 53.96L3.91 48.63L0 50.71L0 47.00L3.91 44.92L3.91 34.03L0 36.11L0 32.40L3.91 30.32L3.91 23.73L6.42 23.73L6.42 28.98M6.42 43.58L12.79 40.19L12.79 29.30L6.42 32.69L6.42 43.58Z";
+        }
+        if (accidental === "flat") {
+          return "M14.45 43.85Q14.45 45.83 13.82 47.33Q13.18 48.83 12.12 49.95Q11.06 51.07 9.68 51.84Q8.30 52.61 6.80 53.08Q5.30 53.54 3.78 53.75Q2.27 53.96 0.93 53.96L0 53.96L0 18.95L2.51 18.95L2.51 39.60Q3.88 38.38 5.32 37.68Q6.76 36.99 8.69 36.99Q10.08 36.99 11.16 37.49Q12.23 37.99 12.96 38.89Q13.70 39.79 14.07 41.06Q14.45 42.33 14.45 43.85M2.51 52.64Q4.44 52.44 5.90 51.70Q7.35 50.95 8.31 49.79Q9.28 48.63 9.75 47.12Q10.23 45.61 10.23 43.85Q10.23 42.92 10.01 42.10Q9.79 41.28 9.34 40.69Q8.89 40.09 8.20 39.73Q7.52 39.38 6.59 39.38Q5.47 39.38 4.46 39.86Q3.44 40.33 2.51 41.06L2.51 52.64Z";
+        }
         return null;
       }
 
@@ -1257,7 +1261,7 @@
         const staffRight = staffLeft + 96;
 
         // Notehead centre. halfSpace is measured from the BOTTOM line, so:
-        const noteX = staffLeft + 64;
+        const noteX = staffLeft + 72;
         const noteY = staffBottom - halfSpace * gap;
 
         const lines = [];
@@ -1297,30 +1301,39 @@
 
         // The accidental (♯/♭) sits just to the left of the notehead, aligned
         // with the note's y position.
-        const acc = readAccidentalGlyph(def.accidental);
+        const acc = readAccidentalPath(def.accidental);
+        const sharpYOffset = 7;
+        const flatYOffset = 5;
+        const accidentalYOffset = def.accidental === "flat"
+          ? flatYOffset
+          : sharpYOffset;
+        const accidentalScale = 0.65;
+        const accidentalBaseline = noteY + accidentalYOffset;
+        const accidentalTop = accidentalBaseline - (53.96 - 18.95) * accidentalScale;
         const accSVG = acc
-          ? `<text class="read-accidental" x="${noteX - 20}" y="${noteY + 5}">${acc}</text>`
+          ? `<path class="read-accidental" transform="translate(${noteX - 20} ${accidentalTop}) scale(${accidentalScale}) translate(0 -18.95)" d="${acc}"/>`
           : "";
 
         const notehead = `<ellipse class="read-notehead" cx="${noteX}" cy="${noteY}" rx="7" ry="5.2" transform="rotate(-18 ${noteX} ${noteY})"/>`;
 
-        // Treble clef at the left margin of the staff, spanning its height.
+        // Anchor the clef's lower curl to the bottom E line using staff
+        // coordinates, rather than a font-dependent text baseline.
         const clefX = staffLeft + 5;
-        const clefY = staffTop + 40;
+        const clefTop = staffTop - gap;
 
         // Size the viewBox (anchored at 0,0) to the rightmost and bottommost
         // rendered content: staff + ledger lines, notehead, accidental when
         // present, and the treble clef.
         const noteBottom = noteY + 7;
-        const accBottom = acc ? noteY + 5 : -Infinity;
+        const accBottom = acc ? accidentalBaseline : -Infinity;
         const vbW = Math.max(staffRight, noteX + 7, acc ? noteX - 20 + 16 : 0) + 4;
-        const vbH = Math.max(staffBottom, noteBottom, accBottom, clefY) + 4;
+        const vbH = Math.max(staffBottom, noteBottom, accBottom) + 4;
 
         const svg =
-          `<svg class="read-staff" viewBox="0 0 ${vbW} ${vbH}" width="100%" role="img" aria-label="Treble staff showing ${def.name}${octave}">
+          `<svg class="read-staff" viewBox="0 0 ${vbW} ${vbH}" width="100%" data-zoom="1" role="button" tabindex="0" aria-label="Treble staff showing ${def.name}${octave}. Activate to zoom.">
             ${lines.join("")}
             ${ledgerSVG.join("")}
-            <g class="read-clef">${readTrebleClef(clefX, clefY)}</g>
+            ${readTrebleClef(clefX, clefTop, staffBottom - clefTop)}
             ${accSVG}
             ${notehead}
           </svg>`;
@@ -1333,16 +1346,35 @@
         return `<line class="read-ledger" x1="${x - half}" y1="${y}" x2="${x + 26 + half}" y2="${y}"/>`;
       }
 
-      // A G (treble) clef drawn as SVG text. x places its left edge at the
-      // staff's left margin and y (the baseline) sits it so the glyph spans
-      // from the top line down to the bottom of the staff.
-      function readTrebleClef(x, y) {
-        return `<text class="read-clef-glyph" x="${x}" y="${y}">𝄞</text>`;
+      // Draw the treble clef as vector geometry so its shape and alignment
+      // don't depend on the platform's installed music fonts.
+      function readTrebleClef(x, top, height) {
+        const scale = height / (9674 - 5608) * 1.35;
+        const translateX = x - 1186 * scale;
+        const translateY = top - 5608 * scale - 2;
+        return `<path class="read-clef-path"
+          transform="translate(${translateX} ${translateY}) scale(${scale})"
+          d="M 2002,7851 C 1941,7868 1886,7906 1835,7964 C 1784,8023 1759,8088 1759,8158 C 1759,8202 1774,8252 1803,8305 C 1832,8359 1876,8398 1933,8423 C 1952,8427 1961,8437 1961,8451 C 1961,8456 1954,8461 1937,8465 C 1846,8442 1771,8393 1713,8320 C 1655,8246 1625,8162 1623,8066 C 1626,7963 1657,7867 1716,7779 C 1776,7690 1853,7627 1947,7590 L 1878,7235 C 1724,7363 1599,7496 1502,7636 C 1405,7775 1355,7926 1351,8089 C 1353,8162 1368,8233 1396,8301 C 1424,8370 1466,8432 1522,8489 C 1635,8602 1782,8661 1961,8667 C 2022,8663 2087,8652 2157,8634 L 2002,7851 z M 2074,7841 L 2230,8610 C 2384,8548 2461,8413 2461,8207 C 2452,8138 2432,8076 2398,8021 C 2365,7965 2321,7921 2265,7889 C 2209,7857 2146,7841 2074,7841 z M 1869,6801 C 1902,6781 1940,6746 1981,6697 C 2022,6649 2062,6592 2100,6528 C 2139,6463 2170,6397 2193,6330 C 2216,6264 2227,6201 2227,6143 C 2227,6118 2225,6093 2220,6071 C 2216,6035 2205,6007 2186,5988 C 2167,5970 2143,5960 2113,5960 C 2053,5960 1999,5997 1951,6071 C 1914,6135 1883,6211 1861,6297 C 1838,6384 1825,6470 1823,6557 C 1828,6656 1844,6737 1869,6801 z M 1806,6859 C 1761,6697 1736,6532 1731,6364 C 1732,6256 1743,6155 1764,6061 C 1784,5967 1813,5886 1851,5816 C 1888,5746 1931,5693 1979,5657 C 2022,5625 2053,5608 2070,5608 C 2083,5608 2094,5613 2104,5622 C 2114,5631 2127,5646 2143,5666 C 2262,5835 2322,6039 2322,6277 C 2322,6390 2307,6500 2277,6610 C 2248,6719 2205,6823 2148,6920 C 2090,7018 2022,7103 1943,7176 L 2024,7570 C 2068,7565 2098,7561 2115,7561 C 2191,7561 2259,7577 2322,7609 C 2385,7641 2439,7684 2483,7739 C 2527,7793 2561,7855 2585,7925 C 2608,7995 2621,8068 2621,8144 C 2621,8262 2590,8370 2528,8467 C 2466,8564 2373,8635 2248,8681 C 2256,8730 2270,8801 2291,8892 C 2311,8984 2326,9057 2336,9111 C 2346,9165 2350,9217 2350,9268 C 2350,9347 2331,9417 2293,9479 C 2254,9541 2202,9589 2136,9623 C 2071,9657 1999,9674 1921,9674 C 1811,9674 1715,9643 1633,9582 C 1551,9520 1507,9437 1503,9331 C 1506,9284 1517,9240 1537,9198 C 1557,9156 1584,9122 1619,9096 C 1653,9069 1694,9055 1741,9052 C 1780,9052 1817,9063 1852,9084 C 1886,9106 1914,9135 1935,9172 C 1955,9209 1966,9250 1966,9294 C 1966,9353 1946,9403 1906,9444 C 1866,9485 1815,9506 1754,9506 L 1731,9506 C 1770,9566 1834,9597 1923,9597 C 1968,9597 2014,9587 2060,9569 C 2107,9550 2146,9525 2179,9493 C 2212,9461 2234,9427 2243,9391 C 2260,9350 2268,9293 2268,9222 C 2268,9174 2263,9126 2254,9078 C 2245,9031 2231,8968 2212,8890 C 2193,8813 2179,8753 2171,8712 C 2111,8727 2049,8735 1984,8735 C 1875,8735 1772,8713 1675,8668 C 1578,8623 1493,8561 1419,8481 C 1346,8401 1289,8311 1248,8209 C 1208,8108 1187,8002 1186,7892 C 1190,7790 1209,7692 1245,7600 C 1281,7507 1327,7419 1384,7337 C 1441,7255 1500,7180 1561,7113 C 1623,7047 1704,6962 1806,6859 z"/>`;
       }
 
       function readRenderStaff() {
         const q = read.currentQuestion;
         readStaffWrap.innerHTML = buildReadStaffSVG(q.note.midi, q.def);
+        const staffSvg = readStaffWrap.querySelector(".read-staff");
+        const cycleZoom = () => {
+          const currentZoom = Number(staffSvg.dataset.zoom);
+          const nextZoom = currentZoom >= 3
+            ? 1
+            : Number((currentZoom + 0.25).toFixed(2));
+          staffSvg.dataset.zoom = String(nextZoom);
+          staffSvg.style.setProperty("--staff-zoom", String(nextZoom));
+        };
+        staffSvg.addEventListener("click", cycleZoom);
+        staffSvg.addEventListener("keydown", event => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          cycleZoom();
+        });
       }
 
       function readMakeQuestion() {
