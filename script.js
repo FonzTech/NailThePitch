@@ -200,6 +200,7 @@
         questions: 0,
         startedAt: 0,
         timerInterval: null,
+        playTimer: null,
         currentQuestion: null,
         answered: false
       };
@@ -1426,12 +1427,16 @@
         }, 1000);
 
         readMakeQuestion();
+        clearTimeout(read.playTimer);
+        read.playTimer = setTimeout(readPlayNote, settings.entryDelay);
       }
 
       function readStopSession() {
         read.active = false;
         clearInterval(read.timerInterval);
         read.timerInterval = null;
+        clearTimeout(read.playTimer);
+        read.playTimer = null;
         read.currentQuestion = null;
         readScreen.hidden = true;
         homeScreen.hidden = false;
@@ -1505,6 +1510,7 @@
       function readNextQuestion() {
         if (!read.active) return;
         readMakeQuestion();
+        readPlayNote();
       }
 
       document.querySelector("#read-back-button").addEventListener("click", readStopSession);
